@@ -1,0 +1,78 @@
+services:
+  # ── PostgreSQL Database ──────────────────────────────────────────────────
+  db:
+    image: postgres:15-alpine
+    container_name: expense_tracker_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-expense_tracker}
+      POSTGRES_USER: ${DB_USERNAME:-laravel}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-secret}
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    networks:
+      - expense_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-laravel} -d ${DB_DATABASE:-expense_tracker}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Laravel API ──────────────────────────────────────────────────────────
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: expense_tracker_api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      APP_ENV: local
+      APP_DEBUG: "true"
+      DB_CONNECTION: pgsql
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_DATABASE: ${DB_DATABASE:-expense_tracker}
+      DB_USERNAME: ${DB_USERNAME:-laravel}
+      DB_PASSWORD: ${DB_PASSWORD:-secret}
+    volumes:
+      - ./backend:/var/www/html
+      - backend_vendor:/var/www/html/vendor
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - expense_net
+
+  # ── Next.js Frontend ─────────────────────────────────────────────────────
+  # Uses pre-installed node_modules from host via volume mount.
+  # Run `npm install` in ./frontend on the host before docker compose up.
+  web:
+    image: node:20-alpine
+    container_name: expense_tracker_web
+    restart: unless-stopped
+    working_dir: /app
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+      WATCHPACK_POLLING: "true"
+      NODE_ENV: development
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+    command: sh -c "npm install --prefer-offline 2>/dev/null || true && npm run dev"
+    networks:
+      - expense_net
+
+volumes:
+  db_data:
+  backend_vendor:
+  frontend_node_modules:
+
+networks:
+  expense_net:
+    driver: bridge

@@ -4,7 +4,7 @@ export default function Home() {
       <div className="z-10 max-w-5xl w-full text-center">
         <div className="mb-6 flex justify-center">
           <span className="inline-block px-4 py-1 rounded-full text-sm font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-            Day 1 · Skeleton
+            Day 2 · Skeleton
           </span>
         </div>
 

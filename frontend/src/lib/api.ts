@@ -1,5 +1,4 @@
-const BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
 function getToken(): string | null {
   if (typeof window === "undefined") return null;
@@ -15,6 +14,7 @@ async function apiFetch<T>(path: string, options: FetchOptions = {}): Promise<T>
   const token = getToken();
 
   const res = await fetch(`${BASE_URL}${path}`, {
+    credentials: "include",
     ...rest,
     headers: {
       "Content-Type": "application/json",

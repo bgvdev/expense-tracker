@@ -1,4 +1,4 @@
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+const BASE_URL = 'https://expense-tracker-production-a8e6.up.railway.app';
 
 function getToken(): string | null {
   if (typeof window === "undefined") return null;

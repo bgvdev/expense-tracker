@@ -19,7 +19,10 @@ return [
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => [env('FRONTEND_URL', 'http://localhost:3000')],
+    'allowed_origins' => [
+        'https://project-8l72m.vercel.app', 
+        'http://localhost:3000'
+    ],
 
     'allowed_origins_patterns' => [],
 

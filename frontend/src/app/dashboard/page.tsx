@@ -165,7 +165,7 @@ interface SummaryCardProps {
 const accentClasses: Record<string, { bg: string; text: string }> = {
   indigo: { bg: "bg-indigo-500/20", text: "text-indigo-400" },
   purple: { bg: "bg-purple-500/20", text: "text-purple-400" },
-  pink:   { bg: "bg-pink-500/20",   text: "text-pink-400"   },
+  pink: { bg: "bg-pink-500/20", text: "text-pink-400" },
 };
 
 function SummaryCard({

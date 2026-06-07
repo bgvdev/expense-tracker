@@ -1,4 +1,4 @@
-const BASE_URL = 'https://expense-tracker-production-a8e6.up.railway.app';
+const BASE_URL = 'https://expense-tracker-funw.onrender.com';
 
 function getToken(): string | null {
   if (typeof window === "undefined") return null;

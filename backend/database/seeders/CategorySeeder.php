@@ -52,6 +52,8 @@ class CategorySeeder extends Seeder
             ],
         ];
 
-        Category::insert($categories);
+        foreach ($categories as $category) {
+            Category::firstOrCreate(['slug' => $category['slug']], $category);
+        }
     }
 }

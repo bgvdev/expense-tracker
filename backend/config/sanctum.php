@@ -16,7 +16,7 @@ return [
     */
 
     'stateful' => [
-        'project-8l72m.vercel.app',
+        'trakspend.vercel.app',
         'localhost',
         '127.0.0.1'
     ],

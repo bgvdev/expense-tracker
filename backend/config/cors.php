@@ -20,7 +20,7 @@ return [
     'allowed_methods' => ['*'],
 
     'allowed_origins' => [
-        'https://project-8l72m.vercel.app', 
+        'https://trakspend.vercel.app',
         'http://localhost:3000'
     ],
 

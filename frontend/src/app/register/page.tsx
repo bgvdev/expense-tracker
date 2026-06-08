@@ -30,8 +30,8 @@ export default function RegisterPage() {
         const isConnectionError = !apiErr.status || apiErr.status >= 500;
 
         if (isConnectionError && retriesLeft > 0) {
-          setError("Server is starting up — retrying in 20 seconds…");
-          await new Promise<void>(resolve => setTimeout(resolve, 20000));
+          setError("Server is starting up — retrying in 25 seconds…");
+          await new Promise<void>(resolve => setTimeout(resolve, 25000));
           setError("");
           return attempt(retriesLeft - 1);
         }
@@ -46,7 +46,7 @@ export default function RegisterPage() {
       }
     };
 
-    await attempt(2);
+    await attempt(3);
     setLoading(false);
   };
 

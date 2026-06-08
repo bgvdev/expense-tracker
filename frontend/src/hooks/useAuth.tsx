@@ -33,6 +33,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
+    // Ping health first to wake a sleeping Render instance before fetchUser hits the DB
+    fetch("/api/health").catch(() => {});
     fetchUser();
   }, [fetchUser]);
 

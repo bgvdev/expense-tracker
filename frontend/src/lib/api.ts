@@ -1,6 +1,6 @@
-// Empty string → relative URLs → Next.js rewrites proxy to backend (no CORS).
-// Set NEXT_PUBLIC_API_URL=http://localhost:8000 for local dev without Docker.
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? '';
+// Relative URLs → Next.js rewrite proxies /api/* to Render (no CORS).
+// To change the proxy destination, set BACKEND_URL in next.config.ts or .env.local.
+const BASE_URL = '';
 
 function getToken(): string | null {
   if (typeof window === "undefined") return null;

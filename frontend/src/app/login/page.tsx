@@ -23,8 +23,13 @@ export default function LoginPage() {
       await login({ email, password });
       router.push("/dashboard");
     } catch (err: unknown) {
-      const apiErr = err as { data?: { message?: string } };
-      setError(apiErr.data?.message || "Failed to log in.");
+      const apiErr = err as { data?: { message?: string }; status?: number };
+      const isConnectionError = !apiErr.status || apiErr.status >= 500;
+      setError(
+        isConnectionError
+          ? "Unable to reach the server. It may be starting up — please try again in a moment."
+          : apiErr.data?.message || "Failed to log in."
+      );
     } finally {
       setLoading(false);
     }

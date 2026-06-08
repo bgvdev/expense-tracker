@@ -25,10 +25,15 @@ export default function RegisterPage() {
       await register({ name, email, password, password_confirmation });
       router.push("/dashboard");
     } catch (err: unknown) {
-      const apiErr = err as { data?: { message?: string, errors?: Record<string, string[]> } };
-      const msg = apiErr.data?.message || "Failed to register.";
-      const detailedErrors = Object.values(apiErr.data?.errors || {}).flat().join(" ");
-      setError(detailedErrors || msg);
+      const apiErr = err as { data?: { message?: string, errors?: Record<string, string[]> }; status?: number };
+      const isConnectionError = !apiErr.status || apiErr.status >= 500;
+      if (isConnectionError) {
+        setError("Unable to reach the server. It may be starting up — please try again in a moment.");
+      } else {
+        const msg = apiErr.data?.message || "Failed to register.";
+        const detailedErrors = Object.values(apiErr.data?.errors || {}).flat().join(" ");
+        setError(detailedErrors || msg);
+      }
     } finally {
       setLoading(false);
     }

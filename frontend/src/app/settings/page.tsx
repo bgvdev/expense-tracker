@@ -2,35 +2,32 @@
 
 import { useState, useEffect, FormEvent } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/useToast";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import PasswordInput from "@/components/ui/PasswordInput";
 
 export default function SettingsPage() {
   const { user, loading: authLoading, updateProfile, updatePassword, logout } = useAuth();
+  const { showToast } = useToast();
   const router = useRouter();
 
   // Profile form
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const [name, setName]               = useState("");
+  const [email, setEmail]             = useState("");
   const [profileSaving, setProfileSaving] = useState(false);
-  const [profileSuccess, setProfileSuccess] = useState(false);
-  const [profileError, setProfileError] = useState<string | null>(null);
 
   // Password form
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [passwordSaving, setPasswordSaving] = useState(false);
-  const [passwordSuccess, setPasswordSuccess] = useState(false);
-  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [currentPassword, setCurrentPassword]   = useState("");
+  const [newPassword, setNewPassword]           = useState("");
+  const [confirmPassword, setConfirmPassword]   = useState("");
+  const [passwordSaving, setPasswordSaving]     = useState(false);
+  const [passwordError, setPasswordError]       = useState<string | null>(null);
 
   useEffect(() => {
-    if (!authLoading && !user) {
-      router.push("/login");
-    }
+    if (!authLoading && !user) router.push("/login");
   }, [user, authLoading, router]);
 
-  // Pre-fill profile form once user is loaded
   useEffect(() => {
     if (user) {
       setName(user.name);
@@ -40,22 +37,17 @@ export default function SettingsPage() {
 
   async function handleProfileSubmit(e: FormEvent) {
     e.preventDefault();
-    setProfileError(null);
-    setProfileSuccess(false);
     setProfileSaving(true);
     try {
       await updateProfile({ name, email });
-      setProfileSuccess(true);
-      setTimeout(() => setProfileSuccess(false), 3000);
+      showToast("Profile updated successfully!");
     } catch (err: unknown) {
-      const apiErr = err as {
-        data?: { message?: string; errors?: Record<string, string[]> };
-      };
+      const apiErr = err as { data?: { message?: string; errors?: Record<string, string[]> } };
       const msg =
-        apiErr.data?.message ??
-        Object.values(apiErr.data?.errors ?? {}).flat().join(" ") ??
+        Object.values(apiErr.data?.errors ?? {}).flat().join(" ") ||
+        apiErr.data?.message ||
         "Failed to update profile.";
-      setProfileError(msg);
+      showToast(msg, "error");
     } finally {
       setProfileSaving(false);
     }
@@ -64,32 +56,24 @@ export default function SettingsPage() {
   async function handlePasswordSubmit(e: FormEvent) {
     e.preventDefault();
     setPasswordError(null);
-    setPasswordSuccess(false);
     if (newPassword !== confirmPassword) {
       setPasswordError("New passwords do not match.");
       return;
     }
     setPasswordSaving(true);
     try {
-      await updatePassword({
-        current_password: currentPassword,
-        new_password: newPassword,
-        new_password_confirmation: confirmPassword,
-      });
-      setPasswordSuccess(true);
+      await updatePassword({ current_password: currentPassword, new_password: newPassword, new_password_confirmation: confirmPassword });
+      showToast("Password changed successfully!");
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
-      setTimeout(() => setPasswordSuccess(false), 3000);
     } catch (err: unknown) {
-      const apiErr = err as {
-        data?: { message?: string; errors?: Record<string, string[]> };
-      };
+      const apiErr = err as { data?: { message?: string; errors?: Record<string, string[]> } };
       const msg =
-        apiErr.data?.message ??
-        Object.values(apiErr.data?.errors ?? {}).flat().join(" ") ??
+        Object.values(apiErr.data?.errors ?? {}).flat().join(" ") ||
+        apiErr.data?.message ||
         "Failed to update password.";
-      setPasswordError(msg);
+      showToast(msg, "error");
     } finally {
       setPasswordSaving(false);
     }
@@ -110,10 +94,7 @@ export default function SettingsPage() {
     <main className="min-h-screen p-4 md:p-8 max-w-2xl mx-auto">
       {/* ── Top Nav ── */}
       <div className="flex items-center justify-between mb-8 pb-6 border-b border-white/10">
-        <Link
-          href="/dashboard"
-          className="flex items-center gap-2 text-white/60 hover:text-white transition-colors"
-        >
+        <Link href="/dashboard" className="flex items-center gap-2 text-white/60 hover:text-white transition-colors">
           <span className="material-symbols-rounded text-xl">arrow_back</span>
           <span className="text-sm font-medium">Back to Dashboard</span>
         </Link>
@@ -147,7 +128,6 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* Avatar */}
           <div className="flex items-center gap-4 mb-6 p-4 rounded-xl bg-white/5 border border-white/10">
             <div className="h-14 w-14 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-2xl shrink-0">
               {user.name.charAt(0).toUpperCase()}
@@ -160,70 +140,32 @@ export default function SettingsPage() {
 
           <form onSubmit={handleProfileSubmit} className="space-y-4">
             <div>
-              <label className="block text-xs font-semibold text-white/50 uppercase tracking-widest mb-2">
-                Full Name
-              </label>
+              <label className="block text-xs font-semibold text-white/50 uppercase tracking-widest mb-2">Full Name</label>
               <input
-                type="text"
-                required
-                maxLength={255}
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10
-                           text-white placeholder-white/25
-                           focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30
-                           transition-all duration-200"
+                type="text" required maxLength={255}
+                value={name} onChange={(e) => setName(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-white/25
+                           focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 transition-all"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-white/50 uppercase tracking-widest mb-2">
-                Email Address
-              </label>
+              <label className="block text-xs font-semibold text-white/50 uppercase tracking-widest mb-2">Email Address</label>
               <input
-                type="email"
-                required
-                maxLength={255}
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10
-                           text-white placeholder-white/25
-                           focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30
-                           transition-all duration-200"
+                type="email" required maxLength={255}
+                value={email} onChange={(e) => setEmail(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-white/25
+                           focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 transition-all"
               />
             </div>
-
-            {profileError && (
-              <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
-                {profileError}
-              </p>
-            )}
-            {profileSuccess && (
-              <p className="text-sm text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-3 flex items-center gap-2">
-                <span className="material-symbols-rounded text-base">check_circle</span>
-                Profile updated successfully!
-              </p>
-            )}
-
             <button
-              type="submit"
-              disabled={profileSaving}
-              className="w-full py-3 rounded-xl font-bold text-sm
-                         bg-gradient-to-r from-indigo-500 to-purple-600
-                         hover:from-indigo-400 hover:to-purple-500
-                         active:scale-[0.98] transition-all duration-200
-                         disabled:opacity-60 disabled:cursor-not-allowed
-                         flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/25"
+              type="submit" disabled={profileSaving}
+              className="w-full py-3 rounded-xl font-bold text-sm bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500
+                         active:scale-[0.98] transition-all disabled:opacity-60 flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/25"
             >
               {profileSaving ? (
-                <>
-                  <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Saving…
-                </>
+                <><span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Saving…</>
               ) : (
-                <>
-                  <span className="material-symbols-rounded text-lg">save</span>
-                  Save Profile
-                </>
+                <><span className="material-symbols-rounded text-lg">save</span>Save Profile</>
               )}
             </button>
           </form>
@@ -243,53 +185,32 @@ export default function SettingsPage() {
 
           <form onSubmit={handlePasswordSubmit} className="space-y-4">
             <div>
-              <label className="block text-xs font-semibold text-white/50 uppercase tracking-widest mb-2">
-                Current Password
-              </label>
-              <input
-                type="password"
+              <label className="block text-xs font-semibold text-white/50 uppercase tracking-widest mb-2">Current Password</label>
+              <PasswordInput
                 required
                 value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
+                onChange={setCurrentPassword}
                 placeholder="Enter current password"
-                className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10
-                           text-white placeholder-white/25
-                           focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30
-                           transition-all duration-200"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-white/50 uppercase tracking-widest mb-2">
-                New Password
-              </label>
-              <input
-                type="password"
+              <label className="block text-xs font-semibold text-white/50 uppercase tracking-widest mb-2">New Password</label>
+              <PasswordInput
                 required
                 minLength={8}
                 value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
+                onChange={setNewPassword}
                 placeholder="At least 8 characters"
-                className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10
-                           text-white placeholder-white/25
-                           focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30
-                           transition-all duration-200"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-white/50 uppercase tracking-widest mb-2">
-                Confirm New Password
-              </label>
-              <input
-                type="password"
+              <label className="block text-xs font-semibold text-white/50 uppercase tracking-widest mb-2">Confirm New Password</label>
+              <PasswordInput
                 required
                 minLength={8}
                 value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
+                onChange={setConfirmPassword}
                 placeholder="Repeat new password"
-                className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10
-                           text-white placeholder-white/25
-                           focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30
-                           transition-all duration-200"
               />
             </div>
 
@@ -298,33 +219,16 @@ export default function SettingsPage() {
                 {passwordError}
               </p>
             )}
-            {passwordSuccess && (
-              <p className="text-sm text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-3 flex items-center gap-2">
-                <span className="material-symbols-rounded text-base">check_circle</span>
-                Password changed successfully!
-              </p>
-            )}
 
             <button
-              type="submit"
-              disabled={passwordSaving}
-              className="w-full py-3 rounded-xl font-bold text-sm
-                         bg-gradient-to-r from-purple-500 to-pink-600
-                         hover:from-purple-400 hover:to-pink-500
-                         active:scale-[0.98] transition-all duration-200
-                         disabled:opacity-60 disabled:cursor-not-allowed
-                         flex items-center justify-center gap-2 shadow-lg shadow-purple-500/25"
+              type="submit" disabled={passwordSaving}
+              className="w-full py-3 rounded-xl font-bold text-sm bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-400 hover:to-pink-500
+                         active:scale-[0.98] transition-all disabled:opacity-60 flex items-center justify-center gap-2 shadow-lg shadow-purple-500/25"
             >
               {passwordSaving ? (
-                <>
-                  <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Updating…
-                </>
+                <><span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Updating…</>
               ) : (
-                <>
-                  <span className="material-symbols-rounded text-lg">lock_reset</span>
-                  Update Password
-                </>
+                <><span className="material-symbols-rounded text-lg">lock_reset</span>Update Password</>
               )}
             </button>
           </form>

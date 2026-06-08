@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import PasswordInput from "@/components/ui/PasswordInput";
 
 export default function RegisterPage() {
   const { register } = useAuth();
@@ -83,23 +84,11 @@ export default function RegisterPage() {
             </div>
             <div>
               <label className="block text-xs font-semibold text-white/50 uppercase tracking-widest mb-2">Password</label>
-              <input
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 transition-all duration-200"
-              />
+              <PasswordInput required value={password} onChange={setPassword} placeholder="At least 8 characters" />
             </div>
             <div>
               <label className="block text-xs font-semibold text-white/50 uppercase tracking-widest mb-2">Confirm Password</label>
-              <input
-                type="password"
-                required
-                value={password_confirmation}
-                onChange={(e) => setPasswordConfirmation(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 transition-all duration-200"
-              />
+              <PasswordInput required value={password_confirmation} onChange={setPasswordConfirmation} placeholder="Repeat password" />
             </div>
           </div>
 

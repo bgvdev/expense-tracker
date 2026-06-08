@@ -11,13 +11,22 @@ class Category extends Model
 
     protected $table = 'category';
 
-    protected $fillable = ['name', 'slug', 'icon', 'color'];
+    protected $fillable = ['user_id', 'name', 'slug', 'icon', 'color'];
 
-    /**
-     * Get the expenses associated with the category.
-     */
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
+
     public function expenses()
     {
         return $this->hasMany(Expense::class);
+    }
+
+    public function scopeAccessibleBy($query, int $userId)
+    {
+        return $query->where(function ($q) use ($userId) {
+            $q->whereNull('user_id')->orWhere('user_id', $userId);
+        });
     }
 }

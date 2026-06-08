@@ -21,22 +21,33 @@ export default function RegisterPage() {
     setLoading(true);
     setError("");
 
-    try {
-      await register({ name, email, password, password_confirmation });
-      router.push("/dashboard");
-    } catch (err: unknown) {
-      const apiErr = err as { data?: { message?: string, errors?: Record<string, string[]> }; status?: number };
-      const isConnectionError = !apiErr.status || apiErr.status >= 500;
-      if (isConnectionError) {
-        setError("Unable to reach the server. It may be starting up — please try again in a moment.");
-      } else {
-        const msg = apiErr.data?.message || "Failed to register.";
-        const detailedErrors = Object.values(apiErr.data?.errors || {}).flat().join(" ");
-        setError(detailedErrors || msg);
+    const attempt = async (retriesLeft: number): Promise<void> => {
+      try {
+        await register({ name, email, password, password_confirmation });
+        router.push("/dashboard");
+      } catch (err: unknown) {
+        const apiErr = err as { data?: { message?: string, errors?: Record<string, string[]> }; status?: number };
+        const isConnectionError = !apiErr.status || apiErr.status >= 500;
+
+        if (isConnectionError && retriesLeft > 0) {
+          setError("Server is starting up — retrying in 20 seconds…");
+          await new Promise<void>(resolve => setTimeout(resolve, 20000));
+          setError("");
+          return attempt(retriesLeft - 1);
+        }
+
+        if (isConnectionError) {
+          setError("Unable to reach the server. Please try again.");
+        } else {
+          const msg = apiErr.data?.message || "Failed to register.";
+          const detailedErrors = Object.values(apiErr.data?.errors || {}).flat().join(" ");
+          setError(detailedErrors || msg);
+        }
       }
-    } finally {
-      setLoading(false);
-    }
+    };
+
+    await attempt(2);
+    setLoading(false);
   };
 
   return (

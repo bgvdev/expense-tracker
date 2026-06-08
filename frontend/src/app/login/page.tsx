@@ -19,20 +19,31 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
 
-    try {
-      await login({ email, password });
-      router.push("/dashboard");
-    } catch (err: unknown) {
-      const apiErr = err as { data?: { message?: string }; status?: number };
-      const isConnectionError = !apiErr.status || apiErr.status >= 500;
-      setError(
-        isConnectionError
-          ? "Unable to reach the server. It may be starting up — please try again in a moment."
-          : apiErr.data?.message || "Failed to log in."
-      );
-    } finally {
-      setLoading(false);
-    }
+    const attempt = async (retriesLeft: number): Promise<void> => {
+      try {
+        await login({ email, password });
+        router.push("/dashboard");
+      } catch (err: unknown) {
+        const apiErr = err as { data?: { message?: string }; status?: number };
+        const isConnectionError = !apiErr.status || apiErr.status >= 500;
+
+        if (isConnectionError && retriesLeft > 0) {
+          setError("Server is starting up — retrying in 20 seconds…");
+          await new Promise<void>(resolve => setTimeout(resolve, 20000));
+          setError("");
+          return attempt(retriesLeft - 1);
+        }
+
+        setError(
+          isConnectionError
+            ? "Unable to reach the server. Please try again."
+            : apiErr.data?.message || "Failed to log in."
+        );
+      }
+    };
+
+    await attempt(2);
+    setLoading(false);
   };
 
   return (

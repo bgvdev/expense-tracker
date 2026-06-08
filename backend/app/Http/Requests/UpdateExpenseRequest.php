@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class UpdateExpenseRequest extends FormRequest
 {
@@ -15,7 +16,12 @@ class UpdateExpenseRequest extends FormRequest
     {
         return [
             'amount'      => ['sometimes', 'numeric', 'min:0.01'],
-            'category_id' => ['sometimes', 'integer', 'exists:category,id'],
+            'category_id' => [
+                'sometimes', 'integer',
+                Rule::exists('category', 'id')->where(fn ($q) =>
+                    $q->where('user_id', null)->orWhere('user_id', auth()->id())
+                ),
+            ],
             'description' => ['nullable', 'string', 'max:255'],
             'spent_at'    => ['sometimes', 'date'],
         ];

@@ -1,42 +1,35 @@
 "use client";
 
-import { useState, useEffect, FormEvent } from "react";
-import apiFetch from "@/lib/api";
+import { useState, FormEvent, useEffect } from "react";
+import { useToast } from "@/hooks/useToast";
 import type { Category, NewExpense } from "@/lib/types";
 
 interface Props {
   onAdd: (data: NewExpense) => Promise<unknown>;
+  categories: Category[];
+  catLoading: boolean;
 }
 
-export default function ExpenseForm({ onAdd }: Props) {
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [catLoading, setCatLoading] = useState(true);
+export default function ExpenseForm({ onAdd, categories, catLoading }: Props) {
+  const { showToast } = useToast();
 
-  const [amount, setAmount] = useState("");
-  const [categoryId, setCategoryId] = useState("");
+  const [amount, setAmount]           = useState("");
+  const [categoryId, setCategoryId]   = useState("");
   const [description, setDescription] = useState("");
-  const [spentAt, setSpentAt] = useState(
-    new Date().toISOString().split("T")[0]
-  );
+  const [spentAt, setSpentAt]         = useState(new Date().toISOString().split("T")[0]);
+  const [submitting, setSubmitting]   = useState(false);
+  const [formError, setFormError]     = useState<string | null>(null);
 
-  const [submitting, setSubmitting] = useState(false);
-  const [success, setSuccess] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
-
+  // Auto-select first category once loaded
   useEffect(() => {
-    apiFetch<Category[]>("/api/categories")
-      .then((data) => {
-        setCategories(data);
-        if (data.length > 0) setCategoryId(String(data[0].id));
-      })
-      .catch(() => setFormError("Could not load categories."))
-      .finally(() => setCatLoading(false));
-  }, []);
+    if (!categoryId && categories.length > 0) {
+      setCategoryId(String(categories[0].id));
+    }
+  }, [categories, categoryId]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setFormError(null);
-    setSuccess(false);
     if (!amount || Number(amount) < 0.01) {
       setFormError("Amount must be at least 0.01.");
       return;
@@ -49,20 +42,15 @@ export default function ExpenseForm({ onAdd }: Props) {
         description: description || undefined,
         spent_at: spentAt,
       });
-      setSuccess(true);
+      showToast("Expense added successfully!");
       setAmount("");
       setDescription("");
       setSpentAt(new Date().toISOString().split("T")[0]);
-      setTimeout(() => setSuccess(false), 3000);
     } catch (err: unknown) {
-      const apiErr = err as {
-        data?: { message?: string; errors?: Record<string, string[]> };
-      };
+      const apiErr = err as { data?: { message?: string; errors?: Record<string, string[]> } };
       const msg =
-        apiErr.data?.message ??
-        Object.values(apiErr.data?.errors ?? {})
-          .flat()
-          .join(" ") ??
+        Object.values(apiErr.data?.errors ?? {}).flat().join(" ") ||
+        apiErr.data?.message ||
         "Failed to add expense.";
       setFormError(msg);
     } finally {
@@ -73,23 +61,14 @@ export default function ExpenseForm({ onAdd }: Props) {
   const selectedCat = categories.find((c) => c.id === Number(categoryId));
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="space-y-5"
-      aria-label="Add expense form"
-    >
+    <form onSubmit={handleSubmit} className="space-y-5" aria-label="Add expense form">
       {/* Amount */}
       <div>
-        <label
-          htmlFor="expense-amount"
-          className="block text-xs font-semibold text-white/50 uppercase tracking-widest mb-2"
-        >
+        <label htmlFor="expense-amount" className="block text-xs font-semibold text-white/50 uppercase tracking-widest mb-2">
           Amount (₹)
         </label>
         <div className="relative">
-          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-400 font-bold text-lg">
-            ₹
-          </span>
+          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-400 font-bold text-lg">₹</span>
           <input
             id="expense-amount"
             type="number"
@@ -109,10 +88,7 @@ export default function ExpenseForm({ onAdd }: Props) {
 
       {/* Category */}
       <div>
-        <label
-          htmlFor="expense-category"
-          className="block text-xs font-semibold text-white/50 uppercase tracking-widest mb-2"
-        >
+        <label htmlFor="expense-category" className="block text-xs font-semibold text-white/50 uppercase tracking-widest mb-2">
           Category
         </label>
         <div className="relative">
@@ -137,9 +113,7 @@ export default function ExpenseForm({ onAdd }: Props) {
           >
             {catLoading && <option>Loading…</option>}
             {categories.map((c) => (
-              <option key={c.id} value={c.id} className="bg-gray-900">
-                {c.name}
-              </option>
+              <option key={c.id} value={c.id} className="bg-gray-900">{c.name}</option>
             ))}
           </select>
         </div>
@@ -147,12 +121,8 @@ export default function ExpenseForm({ onAdd }: Props) {
 
       {/* Description */}
       <div>
-        <label
-          htmlFor="expense-description"
-          className="block text-xs font-semibold text-white/50 uppercase tracking-widest mb-2"
-        >
-          Description{" "}
-          <span className="normal-case font-normal text-white/30">(optional)</span>
+        <label htmlFor="expense-description" className="block text-xs font-semibold text-white/50 uppercase tracking-widest mb-2">
+          Description <span className="normal-case font-normal text-white/30">(optional)</span>
         </label>
         <input
           id="expense-description"
@@ -170,10 +140,7 @@ export default function ExpenseForm({ onAdd }: Props) {
 
       {/* Date */}
       <div>
-        <label
-          htmlFor="expense-date"
-          className="block text-xs font-semibold text-white/50 uppercase tracking-widest mb-2"
-        >
+        <label htmlFor="expense-date" className="block text-xs font-semibold text-white/50 uppercase tracking-widest mb-2">
           Date
         </label>
         <input
@@ -185,21 +152,13 @@ export default function ExpenseForm({ onAdd }: Props) {
           className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10
                      text-white
                      focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30
-                     transition-all duration-200
-                     [color-scheme:dark]"
+                     transition-all duration-200 [color-scheme:dark]"
         />
       </div>
 
-      {/* Feedback */}
       {formError && (
         <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
           {formError}
-        </p>
-      )}
-      {success && (
-        <p className="text-sm text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-3 flex items-center gap-2">
-          <span className="material-symbols-rounded text-base">check_circle</span>
-          Expense added successfully!
         </p>
       )}
 

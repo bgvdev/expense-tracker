@@ -3,6 +3,19 @@ export interface Category {
   name: string;
   icon: string;
   color: string;
+  is_global?: boolean;
+}
+
+export interface NewCategory {
+  name: string;
+  icon: string;
+  color: string;
+}
+
+export interface UpdateCategory {
+  name?: string;
+  icon?: string;
+  color?: string;
 }
 
 export interface Expense {

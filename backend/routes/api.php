@@ -16,8 +16,6 @@ use Illuminate\Support\Facades\Route;
 // Public routes
 Route::get('/health', fn () => response()->json(['status' => 'ok']));
 
-// Public: category list (used to populate the expense form dropdown)
-Route::get('categories', [CategoryController::class, 'index']);
 
 // Auth — public (rate-limited to 10 requests/minute per IP)
 Route::prefix('auth')->middleware('throttle:10,1')->group(function () {
@@ -34,6 +32,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::patch('profile',         [AuthController::class, 'updateProfile']);
         Route::patch('password',        [AuthController::class, 'updatePassword']);
     });
+
+    // Categories (user's own + global)
+    Route::apiResource('categories', CategoryController::class)
+        ->only(['index', 'store', 'update', 'destroy']);
 
     // Expenses
     Route::apiResource('expenses', ExpenseController::class)

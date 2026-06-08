@@ -21,6 +21,13 @@ export interface NewExpense {
   spent_at: string;
 }
 
+export interface UpdateExpense {
+  amount?: number;
+  category_id?: number;
+  description?: string | null;
+  spent_at?: string;
+}
+
 export interface User {
   id: number;
   name: string;
@@ -32,3 +39,13 @@ export interface AuthResponse {
   user: User;
 }
 
+export interface UpdateProfileData {
+  name: string;
+  email: string;
+}
+
+export interface UpdatePasswordData {
+  current_password: string;
+  new_password: string;
+  new_password_confirmation: string;
+}

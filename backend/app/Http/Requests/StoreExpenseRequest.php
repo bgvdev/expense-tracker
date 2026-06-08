@@ -24,7 +24,7 @@ class StoreExpenseRequest extends FormRequest
     {
         return [
             'amount'      => ['required', 'numeric', 'min:0.01'],
-            'category_id' => ['required', 'integer', 'exists:categories,id'],
+            'category_id' => ['required', 'integer', 'exists:category,id'],
             'description' => ['nullable', 'string', 'max:255'],
             'spent_at'    => ['required', 'date'],
         ];

@@ -19,8 +19,8 @@ Route::get('/health', fn () => response()->json(['status' => 'ok']));
 // Public: category list (used to populate the expense form dropdown)
 Route::get('categories', [CategoryController::class, 'index']);
 
-// Auth — public (no token required)
-Route::prefix('auth')->group(function () {
+// Auth — public (rate-limited to 10 requests/minute per IP)
+Route::prefix('auth')->middleware('throttle:10,1')->group(function () {
     Route::post('register', [AuthController::class, 'register']);
     Route::post('login',    [AuthController::class, 'login']);
 });
@@ -29,10 +29,13 @@ Route::prefix('auth')->group(function () {
 Route::middleware('auth:sanctum')->group(function () {
     // Auth — protected
     Route::prefix('auth')->group(function () {
-        Route::post('logout', [AuthController::class, 'logout']);
-        Route::get('me',      [AuthController::class, 'me']);
+        Route::post('logout',           [AuthController::class, 'logout']);
+        Route::get('me',                [AuthController::class, 'me']);
+        Route::patch('profile',         [AuthController::class, 'updateProfile']);
+        Route::patch('password',        [AuthController::class, 'updatePassword']);
     });
 
     // Expenses
-    Route::apiResource('expenses', ExpenseController::class)->only(['index', 'store']);
+    Route::apiResource('expenses', ExpenseController::class)
+        ->only(['index', 'store', 'update', 'destroy']);
 });

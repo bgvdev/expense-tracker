@@ -1,4 +1,4 @@
-const BASE_URL = 'https://expense-tracker-funw.onrender.com';
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://expense-tracker-funw.onrender.com';
 
 function getToken(): string | null {
   if (typeof window === "undefined") return null;
@@ -33,6 +33,9 @@ async function apiFetch<T>(path: string, options: FetchOptions = {}): Promise<T>
     });
     throw err;
   }
+
+  // 204 No Content has no body — skip JSON parsing
+  if (res.status === 204) return null as unknown as T;
 
   return res.json() as Promise<T>;
 }

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import apiFetch from "@/lib/api";
-import type { Expense, NewExpense } from "@/lib/types";
+import type { Expense, NewExpense, UpdateExpense } from "@/lib/types";
 
 export function useExpenses() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -36,9 +36,25 @@ export function useExpenses() {
     return res.data;
   }, []);
 
+  const updateExpense = useCallback(async (id: number, data: UpdateExpense) => {
+    const res = await apiFetch<{ data: Expense }>(`/api/expenses/${id}`, {
+      method: "PATCH",
+      json: data,
+    });
+    setExpenses((prev) =>
+      prev.map((e) => (e.id === id ? res.data : e))
+    );
+    return res.data;
+  }, []);
+
+  const removeExpense = useCallback(async (id: number) => {
+    await apiFetch(`/api/expenses/${id}`, { method: "DELETE" });
+    setExpenses((prev) => prev.filter((e) => e.id !== id));
+  }, []);
+
   useEffect(() => {
     fetchExpenses();
   }, [fetchExpenses]);
 
-  return { expenses, loading, error, fetchExpenses, addExpense };
+  return { expenses, loading, error, fetchExpenses, addExpense, updateExpense, removeExpense };
 }

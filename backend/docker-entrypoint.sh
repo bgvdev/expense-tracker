@@ -13,7 +13,14 @@ fi
 # Run migrations (with retry in case DB is starting up)
 echo "Waiting for database..."
 for i in $(seq 1 10); do
-    php artisan migrate --force && php artisan db:seed --force && break || sleep 3
+    if php artisan migrate --force; then
+        # Only seed when explicitly enabled (safe default: off in production)
+        if [ "${SEED_TEST_USER:-false}" = "true" ]; then
+            php artisan db:seed --force
+        fi
+        break
+    fi
+    sleep 3
 done
 
 # Start PHP-FPM in background

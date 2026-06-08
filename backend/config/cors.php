@@ -19,10 +19,9 @@ return [
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => [
-        'https://trakspend.vercel.app',
-        'http://localhost:3000'
-    ],
+    'allowed_origins' => array_filter(
+        array_map('trim', explode(',', (string) env('CORS_ALLOWED_ORIGINS', 'https://trakspend.vercel.app,http://localhost:3000')))
+    ),
 
     'allowed_origins_patterns' => [],
 

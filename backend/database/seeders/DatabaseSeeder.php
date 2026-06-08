@@ -21,9 +21,13 @@ class DatabaseSeeder extends Seeder
             CategorySeeder::class,
         ]);
 
-        User::firstOrCreate(
-            ['email' => 'test@example.com'],
-            ['name' => 'Test User', 'password' => bcrypt('password')]
-        );
+        // Only seed the test user in local/staging environments.
+        // Set SEED_TEST_USER=true in .env to enable. Never enable in production.
+        if (filter_var(env('SEED_TEST_USER', false), FILTER_VALIDATE_BOOLEAN)) {
+            User::firstOrCreate(
+                ['email' => 'test@example.com'],
+                ['name' => 'Test User', 'password' => bcrypt('password')]
+            );
+        }
     }
 }

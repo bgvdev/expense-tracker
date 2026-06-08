@@ -4,13 +4,12 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreExpenseRequest;
+use App\Http\Requests\UpdateExpenseRequest;
 use App\Http\Resources\ExpenseResource;
+use Illuminate\Http\JsonResponse;
 
 class ExpenseController extends Controller
 {
-    /**
-     * Display a listing of the authenticated user's expenses.
-     */
     public function index()
     {
         $expenses = auth()->user()
@@ -22,9 +21,6 @@ class ExpenseController extends Controller
         return ExpenseResource::collection($expenses);
     }
 
-    /**
-     * Store a newly created expense for the authenticated user.
-     */
     public function store(StoreExpenseRequest $request)
     {
         $expense = $request->user()
@@ -33,6 +29,22 @@ class ExpenseController extends Controller
 
         $expense->load('category');
 
+        return (new ExpenseResource($expense))->response()->setStatusCode(201);
+    }
+
+    public function update(UpdateExpenseRequest $request, int $id)
+    {
+        $expense = auth()->user()->expenses()->findOrFail($id);
+        $expense->update($request->validated());
+        $expense->load('category');
+
         return new ExpenseResource($expense);
+    }
+
+    public function destroy(int $id): JsonResponse
+    {
+        auth()->user()->expenses()->findOrFail($id)->delete();
+
+        return response()->json(null, 204);
     }
 }

@@ -15,11 +15,9 @@ return [
     |
     */
 
-    'stateful' => [
-        'trakspend.vercel.app',
-        'localhost',
-        '127.0.0.1'
-    ],
+    'stateful' => array_filter(
+        array_map('trim', explode(',', (string) env('SANCTUM_STATEFUL_DOMAINS', 'trakspend.vercel.app,localhost,127.0.0.1')))
+    ),
 
     /*
     |--------------------------------------------------------------------------

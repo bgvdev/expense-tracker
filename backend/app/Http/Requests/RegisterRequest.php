@@ -23,9 +23,9 @@ class RegisterRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'email.unique'           => 'An account with this email already exists.',
-            'password.confirmed'     => 'Password confirmation does not match.',
-            'password.min'           => 'Password must be at least 8 characters.',
+            'email.unique'       => 'An account with this email already exists.',
+            'password.confirmed' => 'Password confirmation does not match.',
+            'password.min'       => 'Password must be at least 8 characters.',
         ];
     }
 }

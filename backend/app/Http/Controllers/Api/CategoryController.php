@@ -29,7 +29,7 @@ class CategoryController extends Controller
     {
         $slug = Str::slug($request->name);
         $base = $slug;
-        $i = 1;
+        $i    = 1;
 
         // Ensure slug is unique among this user's categories + global ones
         while (Category::accessibleBy(auth()->id())->where('slug', $slug)->exists()) {

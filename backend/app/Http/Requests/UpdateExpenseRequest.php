@@ -18,8 +18,7 @@ class UpdateExpenseRequest extends FormRequest
             'amount'      => ['sometimes', 'numeric', 'min:0.01'],
             'category_id' => [
                 'sometimes', 'integer',
-                Rule::exists('category', 'id')->where(fn ($q) =>
-                    $q->where('user_id', null)->orWhere('user_id', auth()->id())
+                Rule::exists('category', 'id')->where(fn ($q) => $q->where('user_id', null)->orWhere('user_id', auth()->id())
                 ),
             ],
             'description' => ['nullable', 'string', 'max:255'],

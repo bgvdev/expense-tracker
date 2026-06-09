@@ -25,7 +25,7 @@ class ExpenseResource extends JsonResource
                 'icon'  => $this->category->icon,
                 'color' => $this->category->color,
             ]),
-            'created_at'  => $this->created_at?->toIso8601String(),
+            'created_at' => $this->created_at?->toIso8601String(),
         ];
     }
 }

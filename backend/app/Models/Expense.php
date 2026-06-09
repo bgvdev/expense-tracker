@@ -28,7 +28,7 @@ class Expense extends Model
     {
         return [
             'spent_at' => 'datetime',
-            'amount' => 'decimal:2',
+            'amount'   => 'decimal:2',
         ];
     }
 

@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -19,7 +20,7 @@ class StoreExpenseRequest extends FormRequest
     /**
      * Get the validation rules that apply to the request.
      *
-     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
+     * @return array<string, ValidationRule|array<mixed>|string>
      */
     public function rules(): array
     {
@@ -27,8 +28,7 @@ class StoreExpenseRequest extends FormRequest
             'amount'      => ['required', 'numeric', 'min:0.01'],
             'category_id' => [
                 'required', 'integer',
-                Rule::exists('category', 'id')->where(fn ($q) =>
-                    $q->where('user_id', null)->orWhere('user_id', auth()->id())
+                Rule::exists('category', 'id')->where(fn ($q) => $q->where('user_id', null)->orWhere('user_id', auth()->id())
                 ),
             ],
             'description' => ['nullable', 'string', 'max:255'],
@@ -42,8 +42,8 @@ class StoreExpenseRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'amount.min'           => 'Amount must be at least 0.01.',
-            'category_id.exists'   => 'The selected category does not exist.',
+            'amount.min'         => 'Amount must be at least 0.01.',
+            'category_id.exists' => 'The selected category does not exist.',
         ];
     }
 }

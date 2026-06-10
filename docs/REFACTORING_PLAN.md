@@ -83,7 +83,7 @@ These were not present in the codebase but would improve the project over time:
 | API completeness | Add PUT `/api/expenses/{id}` and DELETE `/api/expenses/{id}` endpoints |
 | Input validation | Add rate limiting on auth endpoints (`ThrottleRequests` middleware) |
 | Token expiry | Set `SANCTUM_TOKEN_EXPIRATION` — tokens currently never expire |
-| CI/CD | Add GitHub Actions workflow: lint + test on PRs |
+| CI/CD | Docker-only: Render builds + deploys on push to `main`, no GitHub Actions. Run lint/tests locally before pushing. |
 | Staging env | Add a staging environment (separate Render service + Neon branch) |
 | Error monitoring | Add Sentry or Bugsnag for production error tracking |
 | Auth hardening | Add email verification (`MustVerifyEmail`) |

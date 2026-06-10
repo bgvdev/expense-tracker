@@ -67,19 +67,17 @@ Two tiers, split by purpose:
 - **Reference data (always):** `CategorySeeder` seeds the 6 default global categories (`user_id = null`). It is idempotent (`firstOrCreate` on `slug`), and `docker-entrypoint.sh` runs it on **every** boot in all environments — production included — so the defaults always exist.
 - **Test fixtures (gated):** `DatabaseSeeder` additionally creates a test user (`test@example.com / password`) only when `SEED_TEST_USER=true`. The entrypoint runs the full `DatabaseSeeder` only under that flag. **Never set `SEED_TEST_USER=true` in production.**
 
-## Deployment & CI/CD
+## Deployment
 
-Code flows: **PR → CI gate → merge to `main` → platform auto-deploy → auto-migrate → health check → live → Sentry**.
+The deployment flow is **Docker-only** — there are no GitHub Actions. Everything happens on the platforms in response to a push.
 
-- **CI gate** — `.github/workflows/ci.yml` runs on every PR into `main` (and feature-branch pushes): a `backend` job (Composer install → `pint --test` lint → `php artisan test` on SQLite in-memory) and a `frontend` job (`npm ci` → `npm run lint` → `tsc --noEmit` → `npm run build`). These checks are currently **advisory** — the repo is a free private repo, and GitHub gates enforced branch protection / rulesets behind GitHub Pro (or making the repo public). Workflow is therefore by convention: open a PR, wait for both checks green, then merge; don't push straight to `main`. To make it enforced later, go public or upgrade to Pro and add a protection rule on `main` requiring the `backend` + `frontend` checks.
-- **Deploy** — both platforms auto-deploy natively on push to `main`. Backend (Render) is described as code in `render.yaml`; the frontend is on Vercel's Git integration. There is **no GitHub Action that triggers the deploy** — the platforms do it.
-- **Migrations & seeding** — run automatically in `backend/docker-entrypoint.sh` (`migrate --force`, then `CategorySeeder`). Render's free tier has the **Shell disabled**, so this must stay automatic — never rely on running migrations by hand. Render also gates traffic on `healthCheckPath: /api/health`.
-- **Post-deploy verify** — `.github/workflows/deploy.yml` (on push to `main`) polls `/api/health` until it returns 200 (fails the run if the deploy never comes up) and records a Sentry release for the commit SHA.
-- **Error monitoring** — Sentry on both runtimes: backend via `sentry/sentry-laravel` (wired in `bootstrap/app.php`, `SENTRY_LARAVEL_DSN`), frontend via `@sentry/nextjs` (`sentry.*.config.ts` + `src/instrumentation*.ts`, `NEXT_PUBLIC_SENTRY_DSN`). Both are inert when their DSN is empty, so local dev stays quiet.
+Code flows: **push to `main` → Render builds the Docker image → entrypoint auto-migrates + seeds → `healthCheckPath` gate → live → Sentry**.
 
-## Keepalive
-
-`.github/workflows/keepalive.yml` pings `GET /api/health` every 13 minutes to prevent Render from sleeping the backend on the free tier.
+- **Deploy** — both platforms auto-deploy natively on push to `main`. Backend (Render) is described as code in `render.yaml` (`runtime: docker`, `rootDir: backend`, `dockerfilePath: ./Dockerfile`); the frontend is on Vercel's Git integration. There is no GitHub Action involved — the platforms build and deploy directly from Git.
+- **Migrations & seeding** — run automatically in `backend/docker-entrypoint.sh` (`migrate --force` in a DB-wait retry loop, then `CategorySeeder`), *before* PHP-FPM/Nginx start serving. Render's free tier has the **Shell disabled**, so this must stay automatic — never rely on running migrations by hand. Render gates traffic on `healthCheckPath: /api/health`, so it won't route to a deploy until migrations finish and health returns 200.
+- **No CI gate** — there is no automated lint/test check on PRs. Run `./vendor/bin/pint --test` and `php artisan test` (backend) / `npm run lint` + `npm run build` (frontend) locally before pushing.
+- **Free-tier cold starts** — there is no keepalive ping, so Render sleeps the backend after ~15 min of inactivity; the first request after idle incurs a ~50s cold start. This is an accepted tradeoff of the Docker-only setup.
+- **Error monitoring** — Sentry on both runtimes: backend via `sentry/sentry-laravel` (wired in `bootstrap/app.php`, `SENTRY_LARAVEL_DSN`), frontend via `@sentry/nextjs` (`sentry.*.config.ts` + `src/instrumentation*.ts`, `NEXT_PUBLIC_SENTRY_DSN`). Both are inert when their DSN is empty, so local dev stays quiet. (Runtime error reporting still works; only the post-deploy Sentry *release-tagging* step was removed.)
 
 ## Commands
 

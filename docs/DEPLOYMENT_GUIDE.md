@@ -104,11 +104,12 @@ Vercel dashboard → **Deployments** → any previous deployment → **Promote t
 
 ## CI/CD Notes
 
-There is no CI pipeline currently. Recommended additions:
+Deployment is **Docker-only** — there are no GitHub Actions. On push to `main`,
+Render builds the Docker image and its entrypoint runs migrations + seeding before
+the `/api/health` gate lets traffic through. Run lint/tests locally before pushing
+(`./vendor/bin/pint --test`, `php artisan test`, `npm run lint`, `npm run build`).
 
-1. **GitHub Actions** — run `php artisan test` on pull requests.
-2. **Vercel Preview Deployments** — each PR gets a preview URL automatically.
-3. **Branch protection** — require passing CI before merge to `main`.
+Vercel still creates a preview URL automatically for each PR on the frontend.
 
 ---
 

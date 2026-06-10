@@ -1,10 +1,12 @@
 # Render Blueprint (Infrastructure-as-Code) for the Laravel API.
 # Docs: https://render.com/docs/blueprint-spec
 #
-# Migrations & reference-data seeding run automatically on boot via
-# backend/docker-entrypoint.sh (the free tier has the Shell disabled, so they
-# MUST be automatic). `healthCheckPath` makes Render wait for /api/health before
-# routing traffic to a new deploy.
+# Deployment is Docker-only — no GitHub Actions. On every push to main, Render
+# builds the Docker image from backend/Dockerfile, the entrypoint
+# (backend/docker-entrypoint.sh) runs migrations + reference-data seeding, then
+# `healthCheckPath` makes Render wait for /api/health to return 200 before
+# routing traffic to the new deploy. The free tier has the Shell disabled, so
+# migrations MUST stay automatic in the entrypoint.
 #
 # Secrets are marked `sync: false` — set their values in the Render dashboard,
 # they are intentionally not committed here.
@@ -17,7 +19,7 @@ services:
     plan: free
     region: oregon
     healthCheckPath: /api/health
-    autoDeploy: true            # deploy on push to main (gated upstream by branch protection)
+    autoDeploy: true            # deploy on every push to main
     envVars:
       - key: APP_ENV
         value: production

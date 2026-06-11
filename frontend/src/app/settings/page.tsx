@@ -3,14 +3,23 @@
 import { useState, useEffect, FormEvent } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/useToast";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
 import PasswordInput from "@/components/ui/PasswordInput";
+import RequireAuth from "@/components/layout/RequireAuth";
+import AppShell from "@/components/layout/AppShell";
 
 export default function SettingsPage() {
-  const { user, loading: authLoading, updateProfile, updatePassword, logout } = useAuth();
+  return (
+    <RequireAuth>
+      <AppShell>
+        <Settings />
+      </AppShell>
+    </RequireAuth>
+  );
+}
+
+function Settings() {
+  const { user, updateProfile, updatePassword } = useAuth();
   const { showToast } = useToast();
-  const router = useRouter();
 
   // Profile form
   const [name, setName]               = useState("");
@@ -23,10 +32,6 @@ export default function SettingsPage() {
   const [confirmPassword, setConfirmPassword]   = useState("");
   const [passwordSaving, setPasswordSaving]     = useState(false);
   const [passwordError, setPasswordError]       = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!authLoading && !user) router.push("/login");
-  }, [user, authLoading, router]);
 
   useEffect(() => {
     if (user) {
@@ -79,34 +84,11 @@ export default function SettingsPage() {
     }
   }
 
-  if (authLoading || !user) {
-    return (
-      <main className="min-h-screen flex items-center justify-center p-6">
-        <div className="flex items-center gap-3 text-white/50">
-          <span className="h-5 w-5 border-2 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin" />
-          Loading...
-        </div>
-      </main>
-    );
-  }
+  // RequireAuth guarantees user is set before this renders
+  if (!user) return null;
 
   return (
-    <main className="min-h-screen p-4 md:p-8 max-w-2xl mx-auto">
-      {/* ── Top Nav ── */}
-      <div className="flex items-center justify-between mb-8 pb-6 border-b border-white/10">
-        <Link href="/dashboard" className="flex items-center gap-2 text-white/60 hover:text-white transition-colors">
-          <span className="material-symbols-rounded text-xl">arrow_back</span>
-          <span className="text-sm font-medium">Back to Dashboard</span>
-        </Link>
-        <button
-          onClick={() => { logout(); router.push("/login"); }}
-          className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-sm font-medium text-white/80 transition-all flex items-center gap-2"
-        >
-          <span className="material-symbols-rounded text-lg">logout</span>
-          <span className="hidden sm:inline">Sign out</span>
-        </button>
-      </div>
-
+    <main className="p-4 md:p-8 max-w-2xl mx-auto">
       {/* ── Page Header ── */}
       <div className="mb-8">
         <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">

@@ -11,6 +11,8 @@ export interface FilterState {
   datePreset: DatePreset;
   customFrom: string | null;
   customTo: string | null;
+  amountMin: string;
+  amountMax: string;
   sort: "newest" | "oldest" | "highest" | "lowest";
 }
 
@@ -20,6 +22,8 @@ export const DEFAULT_FILTERS: FilterState = {
   datePreset: "all",
   customFrom: null,
   customTo: null,
+  amountMin: "",
+  amountMax: "",
   sort: "newest",
 };
 
@@ -69,6 +73,8 @@ export function useFilteredExpenses(expenses: Expense[], filters: FilterState) {
     filters.search !== "" ||
     filters.categoryIds.length > 0 ||
     filters.datePreset !== "all" ||
+    filters.amountMin !== "" ||
+    filters.amountMax !== "" ||
     filters.sort !== "newest",
   [filters]);
 
@@ -86,6 +92,9 @@ export function useFilteredExpenses(expenses: Expense[], filters: FilterState) {
       }
       // Category
       if (filters.categoryIds.length > 0 && !filters.categoryIds.includes(e.category.id)) return false;
+      // Amount range
+      if (filters.amountMin !== "" && Number(e.amount) < Number(filters.amountMin)) return false;
+      if (filters.amountMax !== "" && Number(e.amount) > Number(filters.amountMax)) return false;
       // Date
       if (dateFrom || dateTo) {
         const d = new Date(e.spent_at);
@@ -105,7 +114,7 @@ export function useFilteredExpenses(expenses: Expense[], filters: FilterState) {
     });
 
     return result;
-  }, [expenses, filters.search, filters.categoryIds, dateFrom, dateTo, filters.sort]);
+  }, [expenses, filters.search, filters.categoryIds, filters.amountMin, filters.amountMax, dateFrom, dateTo, filters.sort]);
 
   const filteredTotal = useMemo(() => filtered.reduce((sum, e) => sum + Number(e.amount), 0), [filtered]);
 

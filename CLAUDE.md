@@ -12,11 +12,11 @@ Full-stack expense tracker with three services managed by Docker Compose:
 
 Auth is stateless: Sanctum issues a plain-text Bearer token on login/register, which the frontend stores in `localStorage` and sends in every request. No cookies, no CSRF.
 
-## Local API proxying vs production
+## API proxying (same in local and production)
 
-In **local dev** (Docker or standalone), `next.config.ts` rewrites all `/api/*` requests to `BACKEND_URL` (defaults to `http://localhost:8000`). The frontend never calls the backend directly — requests go through the Next.js dev server proxy, avoiding CORS.
+The frontend **never calls the backend directly** in any environment — `frontend/src/lib/api.ts` uses `BASE_URL = ''`, so every request is a same-origin relative URL (`/api/*`). The Next.js rewrite in `next.config.ts` proxies `/api/:path*` to `BACKEND_URL`, which **defaults to the Render URL** (`https://expense-tracker-funw.onrender.com`) and falls back there in production on Vercel too. This avoids CORS entirely since the browser only ever talks to the same origin.
 
-In **production**, `frontend/src/lib/api.ts` hard-codes the Render URL (`https://expense-tracker-funw.onrender.com`). There is no env-based URL switching in `api.ts` — change `BASE_URL` in that file when targeting a different environment.
+To target a different backend (e.g. a local API), set `BACKEND_URL` — in `docker-compose.yml` it's `http://api:8000`; standalone, set it in `.env.local`. Do **not** hard-code URLs in `api.ts`; change the proxy destination instead.
 
 ## Database schema note
 
@@ -53,12 +53,13 @@ Expenses are always returned wrapped in `{ data: [...] }` via `ExpenseResource`,
 ```
 src/
   app/           # Next.js App Router pages: login, register, dashboard, settings
-  components/    # ExpenseForm, ExpenseList, EditExpenseModal
-  hooks/         # useAuth (AuthContext + provider), useExpenses
-  lib/           # api.ts (fetch wrapper), types.ts (shared TS interfaces)
+  components/    # feature components (ExpenseForm/List/Filters, Category*, Toast, …)
+  components/ui/ # reusable primitives: Modal, ColorPicker, IconPicker, PasswordInput
+  hooks/         # useAuth, useExpenses, useCategories, useFilteredExpenses, useToast
+  lib/           # api.ts (fetch wrapper), types.ts (shared interfaces), utils.ts
 ```
 
-`AuthProvider` wraps the entire app in `layout.tsx`. All pages that need auth check `useAuth()`. `useExpenses` manages expenses state (fetch/add/update/remove) as a standalone hook used by the dashboard.
+`AuthProvider` wraps the entire app in `layout.tsx`; all pages that need auth check `useAuth()`. State hooks are standalone and own one API resource each: `useExpenses` (fetch/add/update/remove), `useCategories` (CRUD over the user's own categories), `useFilteredExpenses` (client-side filtering over the dashboard list). `useToast` provides the app-wide toast notifications. Shared `ui/` primitives back the modals and the category color/icon pickers.
 
 ## Seeding
 
@@ -111,3 +112,10 @@ npm run dev    # starts on :3000
 npm run build
 npm run lint
 ```
+
+## Reference docs
+
+Operational and deeper-architecture docs live at the repo root and in `docs/` — consult them before touching the areas they cover:
+
+- Root: `RUNBOOK.md` (incident response), `MONITORING.md`, `BACKUP_AND_RECOVERY.md`, `SECURITY_CHECKLIST.md`.
+- `docs/`: `ARCHITECTURE.md`, `DEPLOYMENT_GUIDE.md`, `PRODUCTION_SETUP.md`, `LOCAL_SETUP.md`, `DOCKER_GUIDE.md`, `ENVIRONMENT_VARIABLES.md`.

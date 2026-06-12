@@ -29,6 +29,14 @@ export default function ExpenseForm({ onAdd, categories, catLoading, paymentMeth
     }
   }, [categories, categoryId]);
 
+  // Auto-select UPI as default payment method
+  useEffect(() => {
+    if (!paymentMethodId && paymentMethods.length > 0) {
+      const upi = paymentMethods.find((pm) => pm.slug === "upi");
+      if (upi) setPaymentMethodId(String(upi.id));
+    }
+  }, [paymentMethods, paymentMethodId]);
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setFormError(null);
@@ -47,7 +55,8 @@ export default function ExpenseForm({ onAdd, categories, catLoading, paymentMeth
       });
       showToast("Expense added successfully!");
       setAmount("");
-      setPaymentMethodId("");
+      const upi = paymentMethods.find((pm) => pm.slug === "upi");
+      setPaymentMethodId(upi ? String(upi.id) : "");
       setDescription("");
       setSpentAt(new Date().toISOString().split("T")[0]);
     } catch (err: unknown) {
@@ -164,7 +173,7 @@ export default function ExpenseForm({ onAdd, categories, catLoading, paymentMeth
       {paymentMethods.length > 0 && (
         <div>
           <label htmlFor="expense-payment-method" className="block text-xs font-semibold text-white/50 uppercase tracking-widest mb-2">
-            Payment Method <span className="normal-case font-normal text-white/30">(optional)</span>
+            Payment Method
           </label>
           <div className="relative">
             <span className="material-symbols-rounded absolute left-4 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none" style={{ fontSize: 18 }}>
@@ -179,7 +188,6 @@ export default function ExpenseForm({ onAdd, categories, catLoading, paymentMeth
                          focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30
                          transition-all duration-200"
             >
-              <option value="" className="bg-gray-900">None</option>
               {paymentMethods.map((pm) => (
                 <option key={pm.id} value={pm.id} className="bg-gray-900">{pm.name}</option>
               ))}

@@ -19,7 +19,11 @@ export default function EditExpenseModal({ expense, onSave, onClose, categories,
 
   const [amount, setAmount]                   = useState(String(Number(expense.amount)));
   const [categoryId, setCategoryId]           = useState(String(expense.category.id));
-  const [paymentMethodId, setPaymentMethodId] = useState(String(expense.payment_method?.id ?? ""));
+  const [paymentMethodId, setPaymentMethodId] = useState(
+    expense.payment_method?.id
+      ? String(expense.payment_method.id)
+      : String(paymentMethods.find((pm) => pm.slug === "upi")?.id ?? "")
+  );
   const [description, setDescription]         = useState(expense.description ?? "");
   const [spentAt, setSpentAt]                 = useState(expense.spent_at.split("T")[0]);
   const [submitting, setSubmitting]           = useState(false);
@@ -29,11 +33,16 @@ export default function EditExpenseModal({ expense, onSave, onClose, categories,
   useEffect(() => {
     setAmount(String(Number(expense.amount)));
     setCategoryId(String(expense.category.id));
-    setPaymentMethodId(String(expense.payment_method?.id ?? ""));
+    const upi = paymentMethods.find((pm) => pm.slug === "upi");
+    setPaymentMethodId(
+      expense.payment_method?.id
+        ? String(expense.payment_method.id)
+        : String(upi?.id ?? "")
+    );
     setDescription(expense.description ?? "");
     setSpentAt(expense.spent_at.split("T")[0]);
     setFormError(null);
-  }, [expense]);
+  }, [expense, paymentMethods]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -194,7 +203,7 @@ export default function EditExpenseModal({ expense, onSave, onClose, categories,
         {paymentMethods.length > 0 && (
           <div>
             <label className="block text-xs font-semibold text-white/50 uppercase tracking-widest mb-2">
-              Payment Method <span className="normal-case font-normal text-white/30">(optional)</span>
+              Payment Method
             </label>
             <div className="relative">
               <span className="material-symbols-rounded absolute left-4 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none" style={{ fontSize: 18 }}>
@@ -208,7 +217,6 @@ export default function EditExpenseModal({ expense, onSave, onClose, categories,
                            focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30
                            transition-all duration-200"
               >
-                <option value="" className="bg-gray-900">None</option>
                 {paymentMethods.map((pm) => (
                   <option key={pm.id} value={pm.id} className="bg-gray-900">{pm.name}</option>
                 ))}

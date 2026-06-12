@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useExpenses } from "@/hooks/useExpenses";
 import { useAuth } from "@/hooks/useAuth";
@@ -9,6 +10,7 @@ import { useFilteredExpenses, FilterState, DEFAULT_FILTERS } from "@/hooks/useFi
 import { useToast } from "@/hooks/useToast";
 import Modal from "@/components/ui/Modal";
 import SummaryCard from "@/components/ui/SummaryCard";
+import Pagination from "@/components/ui/Pagination";
 import ExpenseList from "@/components/ExpenseList";
 import ExpenseForm from "@/components/ExpenseForm";
 import EditExpenseModal from "@/components/EditExpenseModal";
@@ -18,19 +20,33 @@ import RequireAuth from "@/components/layout/RequireAuth";
 import { exportToCSV } from "@/lib/utils";
 import type { Expense } from "@/lib/types";
 
+const PER_PAGE_OPTIONS = [5, 10, 15, 25, 50];
+const DEFAULT_PER_PAGE = 10;
+
 export default function ExpensesPage() {
   return (
     <RequireAuth>
       <AppShell>
-        <ExpensesContent />
+        <Suspense>
+          <ExpensesContent />
+        </Suspense>
       </AppShell>
     </RequireAuth>
   );
 }
 
 function ExpensesContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10));
+  const perPage = (() => {
+    const v = parseInt(searchParams.get("per_page") ?? String(DEFAULT_PER_PAGE), 10);
+    return PER_PAGE_OPTIONS.includes(v) ? v : DEFAULT_PER_PAGE;
+  })();
+
   const { user } = useAuth();
-  const { expenses, loading: expensesLoading, error, addExpense, updateExpense, removeExpense } = useExpenses();
+  const { expenses, meta, loading: expensesLoading, error, addExpense, updateExpense, removeExpense } =
+    useExpenses(page, perPage);
   const { categories, loading: catLoading, fetchCategories } = useCategories();
   const { showToast } = useToast();
 
@@ -45,10 +61,30 @@ function ExpensesContent() {
   const { filtered, filteredTotal, filteredCount, isFiltered } =
     useFilteredExpenses(expenses, filters);
 
-  const totalSpent = useMemo(
+  const pageTotal = useMemo(
     () => expenses.reduce((sum, e) => sum + Number(e.amount), 0),
     [expenses]
   );
+
+  const buildUrl = (p: number, pp: number) =>
+    `/expenses?page=${p}&per_page=${pp}`;
+
+  const handlePageChange = (newPage: number) => {
+    router.push(buildUrl(newPage, perPage));
+  };
+
+  const handlePerPageChange = (newPerPage: number) => {
+    router.push(buildUrl(1, newPerPage));
+  };
+
+  const handleFiltersChange = (newFilters: FilterState) => {
+    setFilters(newFilters);
+    if (page !== 1) router.push(buildUrl(1, perPage));
+  };
+
+  const showingFrom = meta ? (meta.current_page - 1) * meta.per_page + 1 : 1;
+  const showingTo   = meta ? Math.min(meta.current_page * meta.per_page, meta.total) : expenses.length;
+  const totalCount  = meta?.total ?? expenses.length;
 
   if (!user) return null;
 
@@ -83,7 +119,7 @@ function ExpensesContent() {
               Expenses
             </h1>
             <p className="text-white/40 text-sm mt-1">
-              {expensesLoading ? "Loading…" : `${expenses.length} expense${expenses.length !== 1 ? "s" : ""} total`}
+              {expensesLoading ? "Loading…" : `${totalCount} expense${totalCount !== 1 ? "s" : ""} total`}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -107,17 +143,17 @@ function ExpensesContent() {
         </div>
 
         {/* ── Summary cards ── */}
-        <div className={`grid gap-4 mb-6 ${isFiltered ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-1 sm:grid-cols-2"}`}>
+        <div className={`grid gap-4 mb-6 ${isFiltered ? "grid-cols-2 sm:grid-cols-3" : "grid-cols-2"}`}>
           <SummaryCard
-            label="Total Spent"
-            value={totalSpent}
+            label="This Page"
+            value={pageTotal}
             icon="account_balance_wallet"
             accent="indigo"
             loading={expensesLoading}
           />
           <SummaryCard
             label="Transactions"
-            value={expenses.length}
+            value={totalCount}
             icon="receipt_long"
             accent="purple"
             isCurrency={false}
@@ -134,7 +170,7 @@ function ExpensesContent() {
                   ₹{filteredTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                 </p>
                 <p className="text-xs text-indigo-300/50 mt-0.5">
-                  {filteredCount} of {expenses.length} expense{expenses.length !== 1 ? "s" : ""}
+                  {filteredCount} of {expenses.length} on this page
                 </p>
               </div>
             </div>
@@ -147,7 +183,7 @@ function ExpensesContent() {
             <ExpenseFilters
               categories={categories}
               filters={filters}
-              onChange={setFilters}
+              onChange={handleFiltersChange}
               filteredCount={filteredCount}
               totalCount={expenses.length}
               filteredTotal={filteredTotal}
@@ -165,9 +201,13 @@ function ExpensesContent() {
               </span>
               <div>
                 <h2 className="text-base font-bold text-white">All Expenses</h2>
-                <p className="text-xs text-white/35">
-                  {isFiltered ? `${filteredCount} of ${expenses.length} shown` : `${expenses.length} record${expenses.length !== 1 ? "s" : ""}`}
-                </p>
+                {meta && !expensesLoading && (
+                  <p className="text-xs text-white/35">
+                    {isFiltered
+                      ? `${filteredCount} of ${expenses.length} shown`
+                      : `Showing ${showingFrom}–${showingTo} of ${totalCount}`}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -193,8 +233,33 @@ function ExpensesContent() {
             loading={expensesLoading}
             onEdit={setEditingExpense}
             onDelete={async (id) => { await removeExpense(id); showToast("Expense deleted."); }}
-            onClearFilters={() => setFilters(DEFAULT_FILTERS)}
+            onClearFilters={() => handleFiltersChange(DEFAULT_FILTERS)}
           />
+
+          {/* ── Pagination bar + per-page selector ── */}
+          {meta && !expensesLoading && !isFiltered && (
+            <div className="mt-4 border-t border-white/10 pt-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <Pagination meta={meta} onPageChange={handlePageChange} />
+              <div className="flex items-center gap-2 text-xs text-white/40 shrink-0">
+                <span>Rows per page</span>
+                <div className="relative">
+                  <select
+                    value={perPage}
+                    onChange={(e) => handlePerPageChange(Number(e.target.value))}
+                    className="appearance-none bg-white/8 border border-white/15 text-white/80 rounded-lg pl-3 pr-7 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+                    style={{ backgroundColor: "rgba(255,255,255,0.06)" }}
+                  >
+                    {PER_PAGE_OPTIONS.map((n) => (
+                      <option key={n} value={n} style={{ background: "#1e1e2e", color: "#e5e7eb" }}>
+                        {n}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-white/50 text-[10px]">▾</span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
       </div>

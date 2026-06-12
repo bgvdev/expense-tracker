@@ -17,8 +17,6 @@ import AppShell from "@/components/layout/AppShell";
 import RequireAuth from "@/components/layout/RequireAuth";
 import type { Expense } from "@/lib/types";
 
-const RECENT_LIMIT = 10;
-
 export default function DashboardPage() {
   return (
     <RequireAuth>
@@ -31,7 +29,7 @@ export default function DashboardPage() {
 
 function DashboardContent() {
   const { user } = useAuth();
-  const { expenses, loading: expensesLoading, error, addExpense, updateExpense, removeExpense } = useExpenses();
+  const { expenses, meta, loading: expensesLoading, error, addExpense, updateExpense, removeExpense } = useExpenses(1, 10);
   const { categories, loading: catLoading, fetchCategories } = useCategories();
   const { showToast } = useToast();
 
@@ -58,11 +56,6 @@ function DashboardContent() {
       })
       .reduce((sum, e) => sum + Number(e.amount), 0);
   }, [expenses]);
-
-  const recentExpenses = useMemo(
-    () => expenses.slice(0, RECENT_LIMIT),
-    [expenses]
-  );
 
   if (!user) return null;
 
@@ -127,7 +120,7 @@ function DashboardContent() {
           />
           <SummaryCard
             label="Transactions"
-            value={expenses.length}
+            value={meta?.total ?? expenses.length}
             icon="receipt_long"
             accent="pink"
             isCurrency={false}
@@ -156,7 +149,7 @@ function DashboardContent() {
               <div>
                 <h2 className="text-base font-bold text-white">Recent Expenses</h2>
                 <p className="text-xs text-white/35">
-                  {expensesLoading ? "Loading…" : `Last ${Math.min(RECENT_LIMIT, expenses.length)} of ${expenses.length}`}
+                  {expensesLoading ? "Loading…" : `Last ${expenses.length} of ${meta?.total ?? expenses.length}`}
                 </p>
               </div>
             </div>
@@ -177,8 +170,8 @@ function DashboardContent() {
           )}
 
           <ExpenseList
-            expenses={recentExpenses}
-            totalCount={expenses.length}
+            expenses={expenses}
+            totalCount={meta?.total ?? expenses.length}
             loading={expensesLoading}
             onEdit={setEditingExpense}
             onDelete={async (id) => { await removeExpense(id); showToast("Expense deleted."); }}

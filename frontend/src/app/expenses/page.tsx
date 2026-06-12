@@ -20,7 +20,8 @@ import RequireAuth from "@/components/layout/RequireAuth";
 import { exportToCSV } from "@/lib/utils";
 import type { Expense } from "@/lib/types";
 
-const PER_PAGE = 8;
+const PER_PAGE_OPTIONS = [5, 10, 15, 25, 50];
+const DEFAULT_PER_PAGE = 10;
 
 export default function ExpensesPage() {
   return (
@@ -38,10 +39,14 @@ function ExpensesContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10));
+  const perPage = (() => {
+    const v = parseInt(searchParams.get("per_page") ?? String(DEFAULT_PER_PAGE), 10);
+    return PER_PAGE_OPTIONS.includes(v) ? v : DEFAULT_PER_PAGE;
+  })();
 
   const { user } = useAuth();
   const { expenses, meta, loading: expensesLoading, error, addExpense, updateExpense, removeExpense } =
-    useExpenses(page, PER_PAGE);
+    useExpenses(page, perPage);
   const { categories, loading: catLoading, fetchCategories } = useCategories();
   const { showToast } = useToast();
 
@@ -61,14 +66,20 @@ function ExpensesContent() {
     [expenses]
   );
 
+  const buildUrl = (p: number, pp: number) =>
+    `/expenses?page=${p}&per_page=${pp}`;
+
   const handlePageChange = (newPage: number) => {
-    router.push(`/expenses?page=${newPage}`);
+    router.push(buildUrl(newPage, perPage));
+  };
+
+  const handlePerPageChange = (newPerPage: number) => {
+    router.push(buildUrl(1, newPerPage));
   };
 
   const handleFiltersChange = (newFilters: FilterState) => {
     setFilters(newFilters);
-    // Reset to page 1 whenever filters change
-    if (page !== 1) router.push("/expenses?page=1");
+    if (page !== 1) router.push(buildUrl(1, perPage));
   };
 
   const showingFrom = meta ? (meta.current_page - 1) * meta.per_page + 1 : 1;
@@ -225,10 +236,24 @@ function ExpensesContent() {
             onClearFilters={() => handleFiltersChange(DEFAULT_FILTERS)}
           />
 
-          {/* ── Pagination bar ── */}
+          {/* ── Pagination bar + per-page selector ── */}
           {meta && !expensesLoading && !isFiltered && (
-            <div className="mt-4 border-t border-white/10 pt-4">
+            <div className="mt-4 border-t border-white/10 pt-4 flex flex-col sm:flex-row items-center justify-between gap-3">
               <Pagination meta={meta} onPageChange={handlePageChange} />
+              <div className="flex items-center gap-2 text-xs text-white/40 shrink-0">
+                <span>Rows per page</span>
+                <select
+                  value={perPage}
+                  onChange={(e) => handlePerPageChange(Number(e.target.value))}
+                  className="bg-white/5 border border-white/10 text-white/70 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+                >
+                  {PER_PAGE_OPTIONS.map((n) => (
+                    <option key={n} value={n} className="bg-[#1e1e2e]">
+                      {n}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           )}
         </div>

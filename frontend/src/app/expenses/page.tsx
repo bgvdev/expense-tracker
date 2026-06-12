@@ -143,7 +143,7 @@ function ExpensesContent() {
         </div>
 
         {/* ── Summary cards ── */}
-        <div className={`grid gap-4 mb-6 ${isFiltered ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-1 sm:grid-cols-2"}`}>
+        <div className={`grid gap-4 mb-6 ${isFiltered ? "grid-cols-2 sm:grid-cols-3" : "grid-cols-2"}`}>
           <SummaryCard
             label="This Page"
             value={pageTotal}
@@ -242,17 +242,21 @@ function ExpensesContent() {
               <Pagination meta={meta} onPageChange={handlePageChange} />
               <div className="flex items-center gap-2 text-xs text-white/40 shrink-0">
                 <span>Rows per page</span>
-                <select
-                  value={perPage}
-                  onChange={(e) => handlePerPageChange(Number(e.target.value))}
-                  className="bg-white/5 border border-white/10 text-white/70 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
-                >
-                  {PER_PAGE_OPTIONS.map((n) => (
-                    <option key={n} value={n} className="bg-[#1e1e2e]">
-                      {n}
-                    </option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <select
+                    value={perPage}
+                    onChange={(e) => handlePerPageChange(Number(e.target.value))}
+                    className="appearance-none bg-white/8 border border-white/15 text-white/80 rounded-lg pl-3 pr-7 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+                    style={{ backgroundColor: "rgba(255,255,255,0.06)" }}
+                  >
+                    {PER_PAGE_OPTIONS.map((n) => (
+                      <option key={n} value={n} style={{ background: "#1e1e2e", color: "#e5e7eb" }}>
+                        {n}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-white/50 text-[10px]">▾</span>
+                </div>
               </div>
             </div>
           )}

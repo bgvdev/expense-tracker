@@ -31,13 +31,13 @@ function buildPageWindows(current: number, last: number): (number | "…")[] {
 }
 
 const btnBase =
-  "h-8 min-w-[2rem] flex items-center justify-center rounded-md border text-sm font-medium transition-colors";
+  "h-8 min-w-[2rem] flex items-center justify-center rounded-md border text-sm font-medium transition-colors whitespace-nowrap";
 const btnInactive =
-  "border-gray-200 bg-white text-gray-700 hover:bg-gray-50 dark:border-white/10 dark:bg-white/5 dark:text-gray-300 dark:hover:bg-white/10";
+  "border-white/10 bg-white/5 text-white/70 hover:bg-white/10 hover:text-white";
 const btnActive =
   "border-indigo-500 bg-indigo-500 text-white font-bold";
 const btnDisabled =
-  "border-gray-200 bg-white text-gray-400 opacity-40 cursor-not-allowed pointer-events-none dark:border-white/10 dark:bg-white/5";
+  "border-white/10 bg-white/5 text-white/25 opacity-40 cursor-not-allowed pointer-events-none";
 
 export default function Pagination({ meta, onPageChange }: PaginationProps) {
   if (meta.last_page <= 1) return null;
@@ -96,8 +96,8 @@ export default function Pagination({ meta, onPageChange }: PaginationProps) {
         >
           ← Prev
         </button>
-        <span className="text-sm text-gray-500 whitespace-nowrap">
-          Page <strong>{current}</strong> of <strong>{last}</strong>
+        <span className="text-sm text-white/50 whitespace-nowrap">
+          Page <strong className="text-white/80">{current}</strong> of <strong className="text-white/80">{last}</strong>
         </span>
         <button
           className={`${btnBase} flex-1 px-3 ${current === last ? btnDisabled : btnInactive}`}

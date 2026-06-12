@@ -2,23 +2,25 @@
 
 import { useState, FormEvent, useEffect } from "react";
 import { useToast } from "@/hooks/useToast";
-import type { Category, NewExpense } from "@/lib/types";
+import type { Category, NewExpense, PaymentMethod } from "@/lib/types";
 
 interface Props {
   onAdd: (data: NewExpense) => Promise<unknown>;
   categories: Category[];
   catLoading: boolean;
+  paymentMethods: PaymentMethod[];
 }
 
-export default function ExpenseForm({ onAdd, categories, catLoading }: Props) {
+export default function ExpenseForm({ onAdd, categories, catLoading, paymentMethods }: Props) {
   const { showToast } = useToast();
 
-  const [amount, setAmount]           = useState("");
-  const [categoryId, setCategoryId]   = useState("");
-  const [description, setDescription] = useState("");
-  const [spentAt, setSpentAt]         = useState(new Date().toISOString().split("T")[0]);
-  const [submitting, setSubmitting]   = useState(false);
-  const [formError, setFormError]     = useState<string | null>(null);
+  const [amount, setAmount]                   = useState("");
+  const [categoryId, setCategoryId]           = useState("");
+  const [paymentMethodId, setPaymentMethodId] = useState("");
+  const [description, setDescription]         = useState("");
+  const [spentAt, setSpentAt]                 = useState(new Date().toISOString().split("T")[0]);
+  const [submitting, setSubmitting]           = useState(false);
+  const [formError, setFormError]             = useState<string | null>(null);
 
   // Auto-select first category once loaded
   useEffect(() => {
@@ -39,11 +41,13 @@ export default function ExpenseForm({ onAdd, categories, catLoading }: Props) {
       await onAdd({
         amount: Number(amount),
         category_id: Number(categoryId),
+        payment_method_id: paymentMethodId ? Number(paymentMethodId) : null,
         description: description || undefined,
         spent_at: spentAt,
       });
       showToast("Expense added successfully!");
       setAmount("");
+      setPaymentMethodId("");
       setDescription("");
       setSpentAt(new Date().toISOString().split("T")[0]);
     } catch (err: unknown) {
@@ -155,6 +159,34 @@ export default function ExpenseForm({ onAdd, categories, catLoading }: Props) {
                      transition-all duration-200 [color-scheme:dark]"
         />
       </div>
+
+      {/* Payment Method */}
+      {paymentMethods.length > 0 && (
+        <div>
+          <label htmlFor="expense-payment-method" className="block text-xs font-semibold text-white/50 uppercase tracking-widest mb-2">
+            Payment Method <span className="normal-case font-normal text-white/30">(optional)</span>
+          </label>
+          <div className="relative">
+            <span className="material-symbols-rounded absolute left-4 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none" style={{ fontSize: 18 }}>
+              credit_card
+            </span>
+            <select
+              id="expense-payment-method"
+              value={paymentMethodId}
+              onChange={(e) => setPaymentMethodId(e.target.value)}
+              className="w-full pl-10 pr-4 py-3 rounded-xl bg-white/5 border border-white/10
+                         text-white appearance-none
+                         focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30
+                         transition-all duration-200"
+            >
+              <option value="" className="bg-gray-900">None</option>
+              {paymentMethods.map((pm) => (
+                <option key={pm.id} value={pm.id} className="bg-gray-900">{pm.name}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      )}
 
       {formError && (
         <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">

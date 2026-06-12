@@ -21,8 +21,9 @@ class UpdateExpenseRequest extends FormRequest
                 Rule::exists('category', 'id')->where(fn ($q) => $q->where('user_id', null)->orWhere('user_id', auth()->id())
                 ),
             ],
-            'description' => ['nullable', 'string', 'max:255'],
-            'spent_at'    => ['sometimes', 'date'],
+            'payment_method_id' => ['nullable', 'integer', 'exists:payment_method,id'],
+            'description'       => ['nullable', 'string', 'max:255'],
+            'spent_at'          => ['sometimes', 'date'],
         ];
     }
 

@@ -14,7 +14,7 @@ class ExpenseController extends Controller
     {
         $expenses = auth()->user()
             ->expenses()
-            ->with('category')
+            ->with(['category', 'paymentMethod'])
             ->latest('spent_at')
             ->get();
 
@@ -27,7 +27,7 @@ class ExpenseController extends Controller
             ->expenses()
             ->create($request->validated());
 
-        $expense->load('category');
+        $expense->load(['category', 'paymentMethod']);
 
         return (new ExpenseResource($expense))->response()->setStatusCode(201);
     }
@@ -36,7 +36,7 @@ class ExpenseController extends Controller
     {
         $expense = auth()->user()->expenses()->findOrFail($id);
         $expense->update($request->validated());
-        $expense->load('category');
+        $expense->load(['category', 'paymentMethod']);
 
         return new ExpenseResource($expense);
     }

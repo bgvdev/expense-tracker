@@ -1,3 +1,9 @@
+export interface PaymentMethod {
+  id: number;
+  name: string;
+  slug: string;
+}
+
 export interface Category {
   id: number;
   name: string;
@@ -24,12 +30,14 @@ export interface Expense {
   description: string | null;
   spent_at: string;
   category: Category;
+  payment_method: PaymentMethod | null;
   created_at: string;
 }
 
 export interface NewExpense {
   amount: number;
   category_id: number;
+  payment_method_id?: number | null;
   description?: string;
   spent_at: string;
 }
@@ -37,6 +45,7 @@ export interface NewExpense {
 export interface UpdateExpense {
   amount?: number;
   category_id?: number;
+  payment_method_id?: number | null;
   description?: string | null;
   spent_at?: string;
 }
@@ -61,4 +70,16 @@ export interface UpdatePasswordData {
   current_password: string;
   new_password: string;
   new_password_confirmation: string;
+}
+
+export interface PaginationMeta {
+  current_page: number;
+  last_page: number;
+  per_page: number;
+  total: number;
+}
+
+export interface PaginatedResponse<T> {
+  data: T[];
+  meta: PaginationMeta;
 }

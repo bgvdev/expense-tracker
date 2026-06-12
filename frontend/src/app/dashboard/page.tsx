@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useExpenses } from "@/hooks/useExpenses";
 import { useAuth } from "@/hooks/useAuth";
 import { useCategories } from "@/hooks/useCategories";
+import { usePaymentMethods } from "@/hooks/usePaymentMethods";
 import { useFilteredExpenses, DEFAULT_FILTERS } from "@/hooks/useFilteredExpenses";
 import { useToast } from "@/hooks/useToast";
 import Modal from "@/components/ui/Modal";
@@ -33,14 +34,18 @@ function DashboardContent() {
   const { user } = useAuth();
   const { expenses, loading: expensesLoading, error, addExpense, updateExpense, removeExpense } = useExpenses();
   const { categories, loading: catLoading, fetchCategories } = useCategories();
+  const { paymentMethods, fetchPaymentMethods } = usePaymentMethods();
   const { showToast } = useToast();
 
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [addExpenseOpen, setAddExpenseOpen] = useState(false);
 
   useEffect(() => {
-    if (user) fetchCategories();
-  }, [user, fetchCategories]);
+    if (user) {
+      fetchCategories();
+      fetchPaymentMethods();
+    }
+  }, [user, fetchCategories, fetchPaymentMethods]);
 
   const { categoryBreakdown } = useFilteredExpenses(expenses, DEFAULT_FILTERS);
 
@@ -74,6 +79,7 @@ function DashboardContent() {
           onAdd={async (data) => { await addExpense(data); setAddExpenseOpen(false); showToast("Expense added!"); }}
           categories={categories}
           catLoading={catLoading}
+          paymentMethods={paymentMethods}
         />
       </Modal>
 
@@ -85,6 +91,7 @@ function DashboardContent() {
           onClose={() => setEditingExpense(null)}
           categories={categories}
           catLoading={catLoading}
+          paymentMethods={paymentMethods}
         />
       )}
 

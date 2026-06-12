@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\ExpenseController;
+use App\Http\Controllers\Api\PaymentMethodController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -35,6 +36,9 @@ Route::middleware('auth:sanctum')->group(function () {
     // Categories (user's own + global)
     Route::apiResource('categories', CategoryController::class)
         ->only(['index', 'store', 'update', 'destroy']);
+
+    // Payment methods (read-only reference data)
+    Route::get('payment-methods', [PaymentMethodController::class, 'index']);
 
     // Expenses
     Route::apiResource('expenses', ExpenseController::class)

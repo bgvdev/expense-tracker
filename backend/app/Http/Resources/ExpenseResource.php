@@ -25,6 +25,10 @@ class ExpenseResource extends JsonResource
                 'icon'  => $this->category->icon,
                 'color' => $this->category->color,
             ]),
+            'payment_method' => $this->whenLoaded('paymentMethod', fn () => $this->paymentMethod
+                ? ['id' => $this->paymentMethod->id, 'name' => $this->paymentMethod->name, 'slug' => $this->paymentMethod->slug]
+                : null
+            ),
             'created_at' => $this->created_at?->toIso8601String(),
         ];
     }

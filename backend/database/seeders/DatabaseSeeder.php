@@ -19,6 +19,7 @@ class DatabaseSeeder extends Seeder
 
         $this->call([
             CategorySeeder::class,
+            PaymentMethodSeeder::class,
         ]);
 
         // Only seed the test user in local/staging environments.

@@ -14,6 +14,7 @@ class Expense extends Model
     protected $fillable = [
         'user_id',
         'category_id',
+        'payment_method_id',
         'amount',
         'description',
         'spent_at',
@@ -40,11 +41,13 @@ class Expense extends Model
         return $this->belongsTo(User::class);
     }
 
-    /**
-     * Get the category that the expense belongs to.
-     */
     public function category()
     {
         return $this->belongsTo(Category::class);
+    }
+
+    public function paymentMethod()
+    {
+        return $this->belongsTo(PaymentMethod::class);
     }
 }

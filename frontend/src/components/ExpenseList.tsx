@@ -38,6 +38,15 @@ function CategoryBadge({ name, icon, color }: { name: string; icon: string; colo
   );
 }
 
+function PaymentMethodBadge({ name }: { name: string }) {
+  return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-white/8 text-white/50 border border-white/10">
+      <span className="material-symbols-rounded" style={{ fontSize: 12 }}>credit_card</span>
+      <span className="hidden sm:inline">{name}</span>
+    </span>
+  );
+}
+
 export default function ExpenseList({ expenses, totalCount, loading, onEdit, onDelete, onClearFilters }: Props) {
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [confirmId, setConfirmId]   = useState<number | null>(null);
@@ -98,12 +107,15 @@ export default function ExpenseList({ expenses, totalCount, loading, onEdit, onD
               <p className="text-sm font-medium text-white/90 truncate max-w-[120px] sm:max-w-none">
                 {expense.description ?? "—"}
               </p>
-              <div className="mt-1 flex items-center gap-1.5 sm:gap-2">
+              <div className="mt-1 flex items-center gap-1.5 sm:gap-2 flex-wrap">
                 <CategoryBadge
                   name={expense.category.name}
                   icon={expense.category.icon}
                   color={expense.category.color}
                 />
+                {expense.payment_method && (
+                  <PaymentMethodBadge name={expense.payment_method.name} />
+                )}
                 <span className="text-xs text-white/30">{formatted}</span>
               </div>
             </div>

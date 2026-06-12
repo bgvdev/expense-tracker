@@ -8,6 +8,7 @@ export type DatePreset = "all" | "today" | "week" | "month" | "last_month" | "cu
 export interface FilterState {
   search: string;
   categoryIds: number[];
+  paymentMethodIds: number[];
   datePreset: DatePreset;
   customFrom: string | null;
   customTo: string | null;
@@ -19,6 +20,7 @@ export interface FilterState {
 export const DEFAULT_FILTERS: FilterState = {
   search: "",
   categoryIds: [],
+  paymentMethodIds: [],
   datePreset: "all",
   customFrom: null,
   customTo: null,
@@ -72,6 +74,7 @@ export function useFilteredExpenses(expenses: Expense[], filters: FilterState) {
   const isFiltered = useMemo(() =>
     filters.search !== "" ||
     filters.categoryIds.length > 0 ||
+    filters.paymentMethodIds.length > 0 ||
     filters.datePreset !== "all" ||
     filters.amountMin !== "" ||
     filters.amountMax !== "" ||
@@ -92,6 +95,10 @@ export function useFilteredExpenses(expenses: Expense[], filters: FilterState) {
       }
       // Category
       if (filters.categoryIds.length > 0 && !filters.categoryIds.includes(e.category.id)) return false;
+      // Payment method
+      if (filters.paymentMethodIds.length > 0) {
+        if (!e.payment_method || !filters.paymentMethodIds.includes(e.payment_method.id)) return false;
+      }
       // Amount range
       if (filters.amountMin !== "" && Number(e.amount) < Number(filters.amountMin)) return false;
       if (filters.amountMax !== "" && Number(e.amount) > Number(filters.amountMax)) return false;
@@ -114,7 +121,7 @@ export function useFilteredExpenses(expenses: Expense[], filters: FilterState) {
     });
 
     return result;
-  }, [expenses, filters.search, filters.categoryIds, filters.amountMin, filters.amountMax, dateFrom, dateTo, filters.sort]);
+  }, [expenses, filters.search, filters.categoryIds, filters.paymentMethodIds, filters.amountMin, filters.amountMax, dateFrom, dateTo, filters.sort]);
 
   const filteredTotal = useMemo(() => filtered.reduce((sum, e) => sum + Number(e.amount), 0), [filtered]);
 

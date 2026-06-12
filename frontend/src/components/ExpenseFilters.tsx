@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Category } from "@/lib/types";
+import { Category, PaymentMethod } from "@/lib/types";
 import { FilterState, DEFAULT_FILTERS, DatePreset } from "@/hooks/useFilteredExpenses";
 
 interface ExpenseFiltersProps {
   categories: Category[];
+  paymentMethods: PaymentMethod[];
   filters: FilterState;
   onChange: (filters: FilterState) => void;
   filteredCount: number;
@@ -34,13 +35,14 @@ const SORT_OPTIONS: { value: FilterState["sort"]; label: string }[] = [
 interface DrawerContentProps {
   filters: FilterState;
   categories: Category[];
+  paymentMethods: PaymentMethod[];
   onChange: (f: FilterState) => void;
   onDone: () => void;
   onReset: () => void;
   showSort: boolean;
 }
 
-function DrawerContent({ filters, categories, onChange, onDone, onReset, showSort }: DrawerContentProps) {
+function DrawerContent({ filters, categories, paymentMethods, onChange, onDone, onReset, showSort }: DrawerContentProps) {
   const [catSearch, setCatSearch] = useState("");
 
   const visibleCats = catSearch.trim()
@@ -52,6 +54,13 @@ function DrawerContent({ filters, categories, onChange, onDone, onReset, showSor
       ? filters.categoryIds.filter((c) => c !== id)
       : [...filters.categoryIds, id];
     onChange({ ...filters, categoryIds: ids });
+  };
+
+  const togglePaymentMethod = (id: number) => {
+    const ids = filters.paymentMethodIds.includes(id)
+      ? filters.paymentMethodIds.filter((p) => p !== id)
+      : [...filters.paymentMethodIds, id];
+    onChange({ ...filters, paymentMethodIds: ids });
   };
 
   return (
@@ -177,6 +186,32 @@ function DrawerContent({ filters, categories, onChange, onDone, onReset, showSor
         </div>
       )}
 
+      {/* Payment Methods */}
+      {paymentMethods.length > 0 && (
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-white/35 mb-2">Payment Method</p>
+          <div className="flex flex-wrap gap-1.5">
+            {paymentMethods.map((pm) => {
+              const active = filters.paymentMethodIds.includes(pm.id);
+              return (
+                <button
+                  key={pm.id}
+                  onClick={() => togglePaymentMethod(pm.id)}
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                    active
+                      ? "bg-indigo-500/20 border-indigo-500/40 text-indigo-300"
+                      : "border-white/10 bg-white/5 text-white/60 hover:bg-white/10"
+                  }`}
+                >
+                  <span className="material-symbols-rounded" style={{ fontSize: 13 }}>credit_card</span>
+                  {pm.name}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Footer */}
       <div className="flex items-center justify-between pt-2 border-t border-white/8">
         <button onClick={onReset} className="text-xs text-white/35 hover:text-white/60 transition-colors">
@@ -195,7 +230,7 @@ function DrawerContent({ filters, categories, onChange, onDone, onReset, showSor
 
 // ── Main component ─────────────────────────────────────────────────────────
 export default function ExpenseFilters({
-  categories, filters, onChange,
+  categories, paymentMethods, filters, onChange,
 }: ExpenseFiltersProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [searchInput, setSearchInput] = useState(filters.search);
@@ -229,6 +264,7 @@ export default function ExpenseFilters({
   // Count of active non-search filters (for badge on button)
   const activeFilterCount =
     (filters.categoryIds.length > 0 ? 1 : 0) +
+    (filters.paymentMethodIds.length > 0 ? 1 : 0) +
     (filters.datePreset !== "all" ? 1 : 0) +
     (filters.amountMin !== "" || filters.amountMax !== "" ? 1 : 0) +
     (filters.sort !== "newest" ? 1 : 0);
@@ -250,6 +286,13 @@ export default function ExpenseFilters({
       onRemove: () => onChange({ ...filters, categoryIds: filters.categoryIds.filter((c) => c !== id) }),
     });
   });
+  filters.paymentMethodIds.forEach((id) => {
+    const pm = paymentMethods.find((p) => p.id === id);
+    if (pm) activeBadges.push({
+      key: `pm-${id}`, label: pm.name, icon: "credit_card",
+      onRemove: () => onChange({ ...filters, paymentMethodIds: filters.paymentMethodIds.filter((p) => p !== id) }),
+    });
+  });
   if (filters.amountMin !== "" || filters.amountMax !== "") {
     const label =
       filters.amountMin && filters.amountMax ? `₹${filters.amountMin}–₹${filters.amountMax}` :
@@ -269,7 +312,7 @@ export default function ExpenseFilters({
   }
 
   const drawerProps: DrawerContentProps = {
-    filters, categories, onChange, onDone: () => setDrawerOpen(false), onReset: reset, showSort: false,
+    filters, categories, paymentMethods, onChange, onDone: () => setDrawerOpen(false), onReset: reset, showSort: false,
   };
 
   return (

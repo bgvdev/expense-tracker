@@ -3,11 +3,12 @@ import { Expense } from "@/lib/types";
 export function exportToCSV(expenses: Expense[]): void {
   const escape = (s: string) => `"${s.replace(/"/g, '""')}"`;
 
-  const header = ["Date", "Description", "Category", "Amount (INR)"];
+  const header = ["Date", "Description", "Category", "Payment Method", "Amount (INR)"];
   const rows = expenses.map((e) => [
     escape(e.spent_at.split("T")[0]),
     escape(e.description ?? ""),
     escape(e.category.name),
+    escape(e.payment_method?.name ?? ""),
     escape(Number(e.amount).toFixed(2)),
   ]);
 

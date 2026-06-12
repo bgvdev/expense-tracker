@@ -18,6 +18,7 @@ for i in $(seq 1 10); do
         # CategorySeeder is idempotent (firstOrCreate on slug), so this is safe to
         # re-run on every deploy.
         php artisan db:seed --class=CategorySeeder --force
+        php artisan db:seed --class=PaymentMethodSeeder --force
 
         # Test fixtures (test@example.com): local/staging only, never production.
         if [ "${SEED_TEST_USER:-false}" = "true" ]; then

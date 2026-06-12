@@ -7,16 +7,19 @@ use App\Http\Requests\StoreExpenseRequest;
 use App\Http\Requests\UpdateExpenseRequest;
 use App\Http\Resources\ExpenseResource;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class ExpenseController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
+        $perPage = min((int) $request->query('per_page', 15), 100);
+
         $expenses = auth()->user()
             ->expenses()
             ->with(['category', 'paymentMethod'])
             ->latest('spent_at')
-            ->get();
+            ->paginate($perPage);
 
         return ExpenseResource::collection($expenses);
     }

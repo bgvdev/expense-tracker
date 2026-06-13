@@ -31,7 +31,10 @@ services:
         value: error
       # ── Database (Neon) ──────────────────────────────────────────────
       - key: DATABASE_URL
-        sync: false             # full Neon DSN
+        sync: false             # full Neon pooled DSN (used by the app at runtime)
+      - key: DB_MIGRATE_URL
+        sync: false             # direct (non-pooled) Neon DSN — used only for migrations
+                                # same as DATABASE_URL but without "-pooler" in the hostname
       - key: DB_CONNECTION
         value: pgsql
       - key: DB_SSLMODE

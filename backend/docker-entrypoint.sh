@@ -11,9 +11,10 @@ if [ -z "$APP_KEY" ]; then
 fi
 
 # Neon's pooler (PgBouncer in transaction mode) is incompatible with Laravel's
-# session-level advisory locks used during migrations. Use the direct (non-pooled)
-# URL for migrations only; the app continues using the pooler for normal requests.
-MIGRATE_DB_URL=$(echo "${DATABASE_URL}" | sed 's/-pooler\././')
+# session-level advisory locks used during migrations. DB_MIGRATE_URL should be
+# set to the direct (non-pooled) Neon connection string in the Render dashboard.
+# The app continues using DATABASE_URL (pooler) for all normal request traffic.
+MIGRATE_DB_URL="${DB_MIGRATE_URL:-${DATABASE_URL}}"
 
 # Run migrations + seed (with retry in case DB is still starting up).
 echo "Waiting for database..."

@@ -9,6 +9,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasColumn('expense', 'payment_method_id')) {
+            return;
+        }
+
         Schema::table('expense', function (Blueprint $table) {
             $table->foreignId('payment_method_id')
                 ->nullable()

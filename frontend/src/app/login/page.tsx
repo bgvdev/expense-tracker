@@ -1,22 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import PasswordInput from "@/components/ui/PasswordInput";
 import { useToast } from "@/hooks/useToast";
 
-export default function LoginPage() {
-  const { login } = useAuth();
-  const router = useRouter();
+function ResetSuccessToast() {
   const searchParams = useSearchParams();
   const { showToast } = useToast();
-
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
 
   useEffect(() => {
     if (searchParams.get("reset") === "1") {
@@ -24,6 +17,18 @@ export default function LoginPage() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  return null;
+}
+
+export default function LoginPage() {
+  const { login } = useAuth();
+  const router = useRouter();
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,6 +64,7 @@ export default function LoginPage() {
 
   return (
     <main className="min-h-screen flex items-center justify-center p-4">
+      <Suspense><ResetSuccessToast /></Suspense>
       <div className="max-w-md w-full space-y-8 p-8 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm">
         <div className="text-center">
           <span className="material-symbols-rounded text-6xl text-indigo-400">login</span>

@@ -1,15 +1,30 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import PasswordInput from "@/components/ui/PasswordInput";
+import { useToast } from "@/hooks/useToast";
+
+function ResetSuccessToast() {
+  const searchParams = useSearchParams();
+  const { showToast } = useToast();
+
+  useEffect(() => {
+    if (searchParams.get("reset") === "1") {
+      showToast("Password reset successfully. You can now sign in.");
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return null;
+}
 
 export default function LoginPage() {
   const { login } = useAuth();
   const router = useRouter();
-  
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -49,6 +64,7 @@ export default function LoginPage() {
 
   return (
     <main className="min-h-screen flex items-center justify-center p-4">
+      <Suspense><ResetSuccessToast /></Suspense>
       <div className="max-w-md w-full space-y-8 p-8 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm">
         <div className="text-center">
           <span className="material-symbols-rounded text-6xl text-indigo-400">login</span>
@@ -69,7 +85,12 @@ export default function LoginPage() {
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-white/50 uppercase tracking-widest mb-2">Password</label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-xs font-semibold text-white/50 uppercase tracking-widest">Password</label>
+                <Link href="/forgot-password" className="text-xs text-indigo-400 hover:text-indigo-300">
+                  Forgot password?
+                </Link>
+              </div>
               <PasswordInput required value={password} onChange={setPassword} />
             </div>
           </div>

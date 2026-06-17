@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\ExpenseController;
@@ -45,4 +46,10 @@ Route::middleware('auth:sanctum')->group(function () {
     // Expenses
     Route::apiResource('expenses', ExpenseController::class)
         ->only(['index', 'store', 'update', 'destroy']);
+
+    // Admin (requires is_admin = true)
+    Route::middleware('admin')->prefix('admin')->group(function () {
+        Route::get('users', [AdminController::class, 'users']);
+        Route::get('stats', [AdminController::class, 'stats']);
+    });
 });

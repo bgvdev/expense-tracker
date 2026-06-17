@@ -5,15 +5,19 @@ import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 
 const NAV_ITEMS = [
-  { href: "/dashboard",   label: "Dashboard",  icon: "home"         },
-  { href: "/expenses",    label: "Expenses",   icon: "receipt_long" },
-  { href: "/categories",  label: "Categories", icon: "label"        },
-  { href: "/reports",     label: "Reports",    icon: "bar_chart"    },
-  { href: "/settings",    label: "Settings",   icon: "settings"     },
+  { href: "/dashboard",   label: "Dashboard",  icon: "home"                  },
+  { href: "/expenses",    label: "Expenses",   icon: "receipt_long"          },
+  { href: "/categories",  label: "Categories", icon: "label"                 },
+  { href: "/reports",     label: "Reports",    icon: "bar_chart"             },
+  { href: "/settings",    label: "Settings",   icon: "settings"              },
 ] as const;
 
+const ADMIN_NAV_ITEM = { href: "/admin", label: "Admin", icon: "admin_panel_settings" } as const;
+
+const ALL_ROUTES = [...NAV_ITEMS, ADMIN_NAV_ITEM];
+
 function getPageTitle(pathname: string): string {
-  return NAV_ITEMS.find((n) => pathname.startsWith(n.href))?.label ?? "Expense Tracker";
+  return ALL_ROUTES.find((n) => pathname.startsWith(n.href))?.label ?? "Expense Tracker";
 }
 
 function UserAvatar({ initials }: { initials: string }) {
@@ -32,6 +36,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const initials = user?.name
     ? user.name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()
     : "?";
+
+  const navItems = user?.is_admin
+    ? [...NAV_ITEMS, ADMIN_NAV_ITEM]
+    : [...NAV_ITEMS];
 
   function handleLogout() {
     logout();
@@ -60,7 +68,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <p className="text-[10px] font-semibold text-white/30 uppercase tracking-widest px-2 mb-2">
             Main Menu
           </p>
-          {NAV_ITEMS.map(({ href, label, icon }) => {
+          {navItems.map(({ href, label, icon }) => {
             const active = pathname.startsWith(href);
             return (
               <Link
@@ -112,7 +120,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
         {/* Mobile bottom nav */}
         <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 h-16 bg-[rgb(6,6,18)]/90 backdrop-blur-md border-t border-white/10 flex items-stretch">
-          {NAV_ITEMS.map(({ href, label, icon }) => {
+          {navItems.map(({ href, label, icon }) => {
             const active = pathname.startsWith(href);
             return (
               <Link

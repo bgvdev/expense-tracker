@@ -73,6 +73,51 @@ export interface UpdatePasswordData {
   new_password_confirmation: string;
 }
 
+// ── Admin types ──────────────────────────────────────────────────
+
+export interface AdminStats {
+  total_users: number;
+  new_users_this_month: number;
+  total_expenses_count: number;
+  expenses_this_month_count: number;
+  total_expenses_sum: string;
+  expenses_this_month_sum: string;
+  total_categories: number;
+}
+
+export interface AdminUser {
+  id: number;
+  name: string;
+  email: string;
+  is_admin: boolean;
+  created_at: string;
+  expense_count: number;
+  expense_sum: string;
+}
+
+export interface AdminCategory {
+  id: number;
+  name: string;
+  slug: string;
+  icon: string;
+  color: string;
+  expense_count: number;
+  is_global: true;
+}
+
+export interface ActivityItem {
+  id: number;
+  user_name: string;
+  amount: string;
+  category_name: string;
+  category_icon: string;
+  category_color: string;
+  description: string | null;
+  spent_at: string;
+}
+
+// ── Pagination ───────────────────────────────────────────────────
+
 export interface PaginationMeta {
   current_page: number;
   last_page: number;

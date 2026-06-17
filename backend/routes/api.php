@@ -49,7 +49,15 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Admin (requires is_admin = true)
     Route::middleware('admin')->prefix('admin')->group(function () {
-        Route::get('users', [AdminController::class, 'users']);
         Route::get('stats', [AdminController::class, 'stats']);
+        Route::get('activity', [AdminController::class, 'recentActivity']);
+
+        Route::get('users', [AdminController::class, 'users']);
+        Route::patch('users/{id}/role', [AdminController::class, 'updateUserRole']);
+
+        Route::get('categories', [AdminController::class, 'categories']);
+        Route::post('categories', [AdminController::class, 'storeCategory']);
+        Route::patch('categories/{id}', [AdminController::class, 'updateCategory']);
+        Route::delete('categories/{id}', [AdminController::class, 'destroyCategory']);
     });
 });

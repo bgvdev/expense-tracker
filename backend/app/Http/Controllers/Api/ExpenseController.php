@@ -24,6 +24,19 @@ class ExpenseController extends Controller
         return ExpenseResource::collection($expenses);
     }
 
+    public function summary(): JsonResponse
+    {
+        $now = now();
+
+        $thisMonth = auth()->user()
+            ->expenses()
+            ->whereYear('spent_at', $now->year)
+            ->whereMonth('spent_at', $now->month)
+            ->sum('amount');
+
+        return response()->json(['this_month' => (float) $thisMonth]);
+    }
+
     public function store(StoreExpenseRequest $request)
     {
         $expense = $request->user()

@@ -3,6 +3,7 @@
 import { useMemo, useEffect, useState } from "react";
 import Link from "next/link";
 import { useExpenses } from "@/hooks/useExpenses";
+import { useExpenseSummary } from "@/hooks/useExpenseSummary";
 import { useAuth } from "@/hooks/useAuth";
 import { useCategories } from "@/hooks/useCategories";
 import { usePaymentMethods } from "@/hooks/usePaymentMethods";
@@ -31,6 +32,7 @@ export default function DashboardPage() {
 function DashboardContent() {
   const { user } = useAuth();
   const { expenses, meta, loading: expensesLoading, error, addExpense, updateExpense, removeExpense } = useExpenses(1, 10);
+  const { thisMonth, loading: summaryLoading, fetchSummary } = useExpenseSummary();
   const { categories, loading: catLoading, fetchCategories } = useCategories();
   const { paymentMethods, fetchPaymentMethods } = usePaymentMethods();
   const { showToast } = useToast();
@@ -52,16 +54,6 @@ function DashboardContent() {
     [expenses]
   );
 
-  const thisMonth = useMemo(() => {
-    const now = new Date();
-    return expenses
-      .filter((e) => {
-        const d = new Date(e.spent_at);
-        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-      })
-      .reduce((sum, e) => sum + Number(e.amount), 0);
-  }, [expenses]);
-
   if (!user) return null;
 
   return (
@@ -69,7 +61,7 @@ function DashboardContent() {
       {/* Add Expense Modal */}
       <Modal open={addExpenseOpen} onClose={() => setAddExpenseOpen(false)} title="New Expense">
         <ExpenseForm
-          onAdd={async (data) => { await addExpense(data); setAddExpenseOpen(false); showToast("Expense added!"); }}
+          onAdd={async (data) => { await addExpense(data); await fetchSummary(); setAddExpenseOpen(false); showToast("Expense added!"); }}
           categories={categories}
           catLoading={catLoading}
           paymentMethods={paymentMethods}
@@ -80,7 +72,7 @@ function DashboardContent() {
       {editingExpense && (
         <EditExpenseModal
           expense={editingExpense}
-          onSave={async (id, data) => { await updateExpense(id, data); showToast("Expense updated!"); }}
+          onSave={async (id, data) => { await updateExpense(id, data); await fetchSummary(); showToast("Expense updated!"); }}
           onClose={() => setEditingExpense(null)}
           categories={categories}
           catLoading={catLoading}
@@ -110,20 +102,13 @@ function DashboardContent() {
         </div>
 
         {/* ── Summary cards ── */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-          <SummaryCard
-            label="Total Spent"
-            value={totalSpent}
-            icon="account_balance_wallet"
-            accent="indigo"
-            loading={expensesLoading}
-          />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
           <SummaryCard
             label="This Month"
             value={thisMonth}
             icon="calendar_month"
             accent="purple"
-            loading={expensesLoading}
+            loading={summaryLoading}
           />
           <SummaryCard
             label="Transactions"
@@ -181,7 +166,7 @@ function DashboardContent() {
             totalCount={meta?.total ?? expenses.length}
             loading={expensesLoading}
             onEdit={setEditingExpense}
-            onDelete={async (id) => { await removeExpense(id); showToast("Expense deleted."); }}
+            onDelete={async (id) => { await removeExpense(id); await fetchSummary(); showToast("Expense deleted."); }}
           />
         </div>
 

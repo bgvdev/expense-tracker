@@ -2,7 +2,6 @@
 
 import { useState, useEffect, FormEvent } from "react";
 import Modal from "@/components/ui/Modal";
-import { useToast } from "@/hooks/useToast";
 import type { Category, Expense, UpdateExpense, PaymentMethod } from "@/lib/types";
 
 interface Props {
@@ -15,8 +14,6 @@ interface Props {
 }
 
 export default function EditExpenseModal({ expense, onSave, onClose, categories, catLoading, paymentMethods }: Props) {
-  const { showToast } = useToast();
-
   const [amount, setAmount]                   = useState(String(Number(expense.amount)));
   const [categoryId, setCategoryId]           = useState(String(expense.category.id));
   const [paymentMethodId, setPaymentMethodId] = useState(
@@ -60,7 +57,6 @@ export default function EditExpenseModal({ expense, onSave, onClose, categories,
         description: description || null,
         spent_at: spentAt,
       });
-      showToast("Expense updated successfully!");
       onClose();
     } catch (err: unknown) {
       const apiErr = err as { data?: { message?: string; errors?: Record<string, string[]> } };

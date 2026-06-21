@@ -1,9 +1,10 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useExpenses } from "@/hooks/useExpenses";
+import { useExpenseSummary } from "@/hooks/useExpenseSummary";
 import { useAuth } from "@/hooks/useAuth";
 import { useCategories } from "@/hooks/useCategories";
 import { usePaymentMethods } from "@/hooks/usePaymentMethods";
@@ -48,6 +49,7 @@ function ExpensesContent() {
   const { user } = useAuth();
   const { expenses, meta, loading: expensesLoading, error, addExpense, updateExpense, removeExpense } =
     useExpenses(page, perPage);
+  const { thisMonth, loading: summaryLoading, fetchSummary } = useExpenseSummary();
   const { categories, loading: catLoading, fetchCategories } = useCategories();
   const { paymentMethods, fetchPaymentMethods } = usePaymentMethods();
   const { showToast } = useToast();
@@ -65,11 +67,6 @@ function ExpensesContent() {
 
   const { filtered, filteredTotal, filteredCount, isFiltered } =
     useFilteredExpenses(expenses, filters);
-
-  const pageTotal = useMemo(
-    () => expenses.reduce((sum, e) => sum + Number(e.amount), 0),
-    [expenses]
-  );
 
   const buildUrl = (p: number, pp: number) =>
     `/expenses?page=${p}&per_page=${pp}`;
@@ -98,7 +95,7 @@ function ExpensesContent() {
       {/* Add Expense Modal */}
       <Modal open={addExpenseOpen} onClose={() => setAddExpenseOpen(false)} title="New Expense">
         <ExpenseForm
-          onAdd={async (data) => { await addExpense(data); setAddExpenseOpen(false); showToast("Expense added!"); }}
+          onAdd={async (data) => { await addExpense(data); await fetchSummary(); setAddExpenseOpen(false); showToast("Expense added!"); }}
           categories={categories}
           catLoading={catLoading}
           paymentMethods={paymentMethods}
@@ -109,7 +106,7 @@ function ExpensesContent() {
       {editingExpense && (
         <EditExpenseModal
           expense={editingExpense}
-          onSave={async (id, data) => { await updateExpense(id, data); showToast("Expense updated!"); }}
+          onSave={async (id, data) => { await updateExpense(id, data); await fetchSummary(); showToast("Expense updated!"); }}
           onClose={() => setEditingExpense(null)}
           categories={categories}
           catLoading={catLoading}
@@ -152,11 +149,11 @@ function ExpensesContent() {
         {/* ── Summary cards ── */}
         <div className={`grid gap-4 mb-6 ${isFiltered ? "grid-cols-2 sm:grid-cols-3" : "grid-cols-2"}`}>
           <SummaryCard
-            label="This Page"
-            value={pageTotal}
-            icon="account_balance_wallet"
+            label="This Month"
+            value={thisMonth}
+            icon="calendar_month"
             accent="indigo"
-            loading={expensesLoading}
+            loading={summaryLoading}
           />
           <SummaryCard
             label="Transactions"
@@ -240,7 +237,7 @@ function ExpensesContent() {
             totalCount={expenses.length}
             loading={expensesLoading}
             onEdit={setEditingExpense}
-            onDelete={async (id) => { await removeExpense(id); showToast("Expense deleted."); }}
+            onDelete={async (id) => { await removeExpense(id); await fetchSummary(); showToast("Expense deleted."); }}
             onClearFilters={() => handleFiltersChange(DEFAULT_FILTERS)}
           />
 

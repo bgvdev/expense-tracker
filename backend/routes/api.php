@@ -44,6 +44,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('payment-methods', [PaymentMethodController::class, 'index']);
 
     // Expenses
+    Route::get('expenses/summary', [ExpenseController::class, 'summary']);
     Route::apiResource('expenses', ExpenseController::class)
         ->only(['index', 'store', 'update', 'destroy']);
 

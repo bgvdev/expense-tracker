@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, FormEvent, useEffect } from "react";
-import { useToast } from "@/hooks/useToast";
 import type { Category, NewExpense, PaymentMethod } from "@/lib/types";
 
 interface Props {
@@ -12,8 +11,6 @@ interface Props {
 }
 
 export default function ExpenseForm({ onAdd, categories, catLoading, paymentMethods }: Props) {
-  const { showToast } = useToast();
-
   const [amount, setAmount]                   = useState("");
   const [categoryId, setCategoryId]           = useState("");
   const [paymentMethodId, setPaymentMethodId] = useState("");
@@ -53,7 +50,6 @@ export default function ExpenseForm({ onAdd, categories, catLoading, paymentMeth
         description: description || undefined,
         spent_at: spentAt,
       });
-      showToast("Expense added successfully!");
       setAmount("");
       const upi = paymentMethods.find((pm) => pm.slug === "upi");
       setPaymentMethodId(upi ? String(upi.id) : "");

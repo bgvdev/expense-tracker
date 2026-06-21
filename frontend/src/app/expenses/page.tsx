@@ -1,9 +1,9 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { useExpenses } from "@/hooks/useExpenses";
+import { useAllExpenses } from "@/hooks/useAllExpenses";
 import { useExpenseSummary } from "@/hooks/useExpenseSummary";
 import { useAuth } from "@/hooks/useAuth";
 import { useCategories } from "@/hooks/useCategories";
@@ -20,7 +20,7 @@ import ExpenseFilters from "@/components/ExpenseFilters";
 import AppShell from "@/components/layout/AppShell";
 import RequireAuth from "@/components/layout/RequireAuth";
 import { exportToCSV } from "@/lib/utils";
-import type { Expense } from "@/lib/types";
+import type { Expense, PaginationMeta } from "@/lib/types";
 
 const PER_PAGE_OPTIONS = [5, 10, 15, 25, 50];
 const DEFAULT_PER_PAGE = 10;
@@ -47,8 +47,11 @@ function ExpensesContent() {
   })();
 
   const { user } = useAuth();
-  const { expenses, meta, loading: expensesLoading, error, addExpense, updateExpense, removeExpense } =
-    useExpenses(page, perPage);
+  // Filters, totals, and the category breakdown must reflect the user's overall
+  // expenses, not just whichever page happens to be fetched — so we load the
+  // full dataset once and filter/paginate it client-side.
+  const { expenses, loading: expensesLoading, error, addExpense, updateExpense, removeExpense } =
+    useAllExpenses();
   const { thisMonth, loading: summaryLoading, fetchSummary } = useExpenseSummary();
   const { categories, loading: catLoading, fetchCategories } = useCategories();
   const { paymentMethods, fetchPaymentMethods } = usePaymentMethods();
@@ -68,6 +71,20 @@ function ExpensesContent() {
   const { filtered, filteredTotal, filteredCount, isFiltered } =
     useFilteredExpenses(expenses, filters);
 
+  // Client-side pagination over the filtered (overall) result set.
+  const lastPage = Math.max(1, Math.ceil(filtered.length / perPage));
+  const currentPage = Math.min(page, lastPage);
+  const pageItems = useMemo(
+    () => filtered.slice((currentPage - 1) * perPage, currentPage * perPage),
+    [filtered, currentPage, perPage]
+  );
+  const meta: PaginationMeta = {
+    current_page: currentPage,
+    last_page: lastPage,
+    per_page: perPage,
+    total: filtered.length,
+  };
+
   const buildUrl = (p: number, pp: number) =>
     `/expenses?page=${p}&per_page=${pp}`;
 
@@ -84,9 +101,9 @@ function ExpensesContent() {
     if (page !== 1) router.push(buildUrl(1, perPage));
   };
 
-  const showingFrom = meta ? (meta.current_page - 1) * meta.per_page + 1 : 1;
-  const showingTo   = meta ? Math.min(meta.current_page * meta.per_page, meta.total) : expenses.length;
-  const totalCount  = meta?.total ?? expenses.length;
+  const totalCount  = expenses.length;
+  const showingFrom = filteredCount === 0 ? 0 : (meta.current_page - 1) * meta.per_page + 1;
+  const showingTo   = Math.min(meta.current_page * meta.per_page, filteredCount);
 
   if (!user) return null;
 
@@ -174,7 +191,7 @@ function ExpensesContent() {
                   ₹{filteredTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                 </p>
                 <p className="text-xs text-indigo-300/50 mt-0.5">
-                  {filteredCount} of {expenses.length} on this page
+                  {filteredCount} of {totalCount} overall
                 </p>
               </div>
             </div>
@@ -190,7 +207,7 @@ function ExpensesContent() {
               filters={filters}
               onChange={handleFiltersChange}
               filteredCount={filteredCount}
-              totalCount={expenses.length}
+              totalCount={totalCount}
               filteredTotal={filteredTotal}
               isFiltered={isFiltered}
             />
@@ -206,10 +223,10 @@ function ExpensesContent() {
               </span>
               <div>
                 <h2 className="text-base font-bold text-white">All Expenses</h2>
-                {meta && !expensesLoading && (
+                {!expensesLoading && (
                   <p className="text-xs text-white/35">
                     {isFiltered
-                      ? `${filteredCount} of ${expenses.length} shown`
+                      ? `${filteredCount} of ${totalCount} match — showing ${showingFrom}–${showingTo}`
                       : `Showing ${showingFrom}–${showingTo} of ${totalCount}`}
                   </p>
                 )}
@@ -233,8 +250,8 @@ function ExpensesContent() {
           )}
 
           <ExpenseList
-            expenses={filtered}
-            totalCount={expenses.length}
+            expenses={pageItems}
+            totalCount={totalCount}
             loading={expensesLoading}
             onEdit={setEditingExpense}
             onDelete={async (id) => { await removeExpense(id); await fetchSummary(); showToast("Expense deleted."); }}
@@ -242,7 +259,7 @@ function ExpensesContent() {
           />
 
           {/* ── Pagination bar + per-page selector ── */}
-          {meta && !expensesLoading && !isFiltered && (
+          {!expensesLoading && filtered.length > 0 && (
             <div className="mt-4 border-t border-white/10 pt-4 flex flex-col sm:flex-row items-center justify-between gap-3">
               <Pagination meta={meta} onPageChange={handlePageChange} />
               <div className="flex items-center gap-2 text-xs text-white/40 shrink-0">

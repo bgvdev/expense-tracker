@@ -1,12 +1,14 @@
 "use client";
 
+import { useState } from "react";
 import AppShell from "@/components/layout/AppShell";
 import RequireAuth from "@/components/layout/RequireAuth";
 import MonthlyBarChart from "@/components/charts/MonthlyBarChart";
 import CategoryDonutChart from "@/components/charts/CategoryDonutChart";
 import DailyLineChart from "@/components/charts/DailyLineChart";
 import PaymentMethodChart from "@/components/charts/PaymentMethodChart";
-import { useReportsData } from "@/hooks/useReportsData";
+import ReportDateFilter from "@/components/ReportDateFilter";
+import { useReportsData, type DateRange } from "@/hooks/useReportsData";
 
 function LoadingCard({ className = "" }: { className?: string }) {
   return (
@@ -15,11 +17,19 @@ function LoadingCard({ className = "" }: { className?: string }) {
 }
 
 export default function ReportsPage() {
+  const [range, setRange] = useState<DateRange>({ from: null, to: null });
   const { monthlySpending, categoryBreakdown, dailySpending, paymentMethodBreakdown, summary, loading, error } =
-    useReportsData();
+    useReportsData(range);
 
   const now = new Date();
-  const monthLabel = now.toLocaleString("en-IN", { month: "long", year: "numeric" });
+  const rangeLabel = (() => {
+    if (!range.from && !range.to) return "All time";
+    const fmt = (d: Date) => d.toLocaleString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+    if (range.from && range.to) return `${fmt(range.from)} – ${fmt(range.to)}`;
+    if (range.from) return `Since ${fmt(range.from)}`;
+    return `Until ${fmt(range.to!)}`;
+  })();
+  const monthLabel = range.from || range.to ? rangeLabel : now.toLocaleString("en-IN", { month: "long", year: "numeric" });
 
   return (
     <RequireAuth>
@@ -32,6 +42,8 @@ export default function ReportsPage() {
             <p className="text-white/40 text-sm mt-1">Spending insights and charts</p>
           </div>
 
+          <ReportDateFilter onChange={setRange} />
+
           {error && (
             <div className="rounded-2xl bg-red-500/10 border border-red-500/20 p-4 text-red-400 text-sm mb-6">
               {error === "unauthenticated" ? "Please log in to view reports." : error}
@@ -40,7 +52,8 @@ export default function ReportsPage() {
 
           {loading ? (
             <div className="flex flex-col gap-5">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <LoadingCard className="h-24" />
                 <LoadingCard className="h-24" />
                 <LoadingCard className="h-24" />
                 <LoadingCard className="h-24" />
@@ -55,7 +68,22 @@ export default function ReportsPage() {
           ) : (
             <div className="flex flex-col gap-5">
               {/* Summary stats row */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm p-4 flex items-center gap-3">
+                  <span className="h-10 w-10 rounded-xl bg-emerald-500/20 flex items-center justify-center shrink-0">
+                    <span className="material-symbols-rounded text-emerald-400 text-xl">payments</span>
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-white/40 text-xs">Total Spent</p>
+                    <p className="text-white font-bold text-base truncate">
+                      {new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(summary.totalSpent)}
+                    </p>
+                    <p className="text-white/30 text-xs">
+                      {summary.expenseCount} expense{summary.expenseCount !== 1 ? "s" : ""} · {range.from || range.to ? rangeLabel : "All time"}
+                    </p>
+                  </div>
+                </div>
+
                 <div className="rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm p-4 flex items-center gap-3">
                   <span className="h-10 w-10 rounded-xl bg-red-500/20 flex items-center justify-center shrink-0">
                     <span className="material-symbols-rounded text-red-400 text-xl">arrow_upward</span>
@@ -99,13 +127,13 @@ export default function ReportsPage() {
                     <p className="text-white font-bold text-base">
                       {new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(summary.avgDailySpend)}
                     </p>
-                    <p className="text-white/30 text-xs">This month</p>
+                    <p className="text-white/30 text-xs">{range.from || range.to ? rangeLabel : "This month"}</p>
                   </div>
                 </div>
               </div>
 
               {/* Monthly bar chart — full width */}
-              <MonthlyBarChart data={monthlySpending} />
+              <MonthlyBarChart data={monthlySpending} periodLabel={range.from || range.to ? rangeLabel : "Last 6 months"} />
 
               {/* Donut + payment method side by side */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">

@@ -17,6 +17,7 @@ interface DataPoint {
 
 interface Props {
   data: DataPoint[];
+  periodLabel?: string;
 }
 
 const fmt = new Intl.NumberFormat("en-IN", {
@@ -35,7 +36,7 @@ function CustomTooltip({ active, payload, label }: TooltipContentProps) {
   );
 }
 
-export default function MonthlyBarChart({ data }: Props) {
+export default function MonthlyBarChart({ data, periodLabel = "Last 6 months" }: Props) {
   const isEmpty = data.every((d) => d.total === 0);
 
   return (
@@ -45,7 +46,7 @@ export default function MonthlyBarChart({ data }: Props) {
           <span className="material-symbols-rounded text-indigo-400 text-lg">calendar_month</span>
         </span>
         <h2 className="text-white font-semibold text-sm">Monthly Spending</h2>
-        <span className="ml-auto text-white/30 text-xs">Last 6 months</span>
+        <span className="ml-auto text-white/30 text-xs">{periodLabel}</span>
       </div>
 
       {isEmpty ? (

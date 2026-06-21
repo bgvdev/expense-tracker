@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useCategories } from "@/hooks/useCategories";
-import { useExpenses } from "@/hooks/useExpenses";
+import { useAllExpenses } from "@/hooks/useAllExpenses";
 import { useToast } from "@/hooks/useToast";
 import CategoryModal from "@/components/CategoryModal";
 import AppShell from "@/components/layout/AppShell";
@@ -23,7 +23,8 @@ export default function CategoriesPage() {
 function CategoriesContent() {
   const { user } = useAuth();
   const { categories, loading: catLoading, fetchCategories, addCategory, updateCategory, removeCategory } = useCategories();
-  const { expenses, loading: expensesLoading } = useExpenses();
+  // Per-category counts must reflect the user's overall expenses, not one page of them.
+  const { expenses, loading: expensesLoading } = useAllExpenses();
   const { showToast } = useToast();
 
   const [modalOpen, setModalOpen]       = useState(false);

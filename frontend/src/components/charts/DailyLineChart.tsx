@@ -28,9 +28,10 @@ const fmt = new Intl.NumberFormat("en-IN", {
 
 function CustomTooltip({ active, payload, label }: TooltipContentProps) {
   if (!active || !payload?.length) return null;
+  const isPlainDay = /^\d+$/.test(String(label));
   return (
     <div className="rounded-xl bg-[#1e1e2e] border border-white/10 px-3 py-2 text-sm shadow-xl">
-      <p className="text-white/50 text-xs mb-0.5">Day {label}</p>
+      <p className="text-white/50 text-xs mb-0.5">{isPlainDay ? `Day ${label}` : label}</p>
       <p className="text-white font-semibold">{fmt.format(Number(payload[0].value ?? 0))}</p>
     </div>
   );
@@ -51,7 +52,7 @@ export default function DailyLineChart({ data, monthLabel }: Props) {
 
       {isEmpty ? (
         <div className="h-48 flex items-center justify-center text-white/30 text-sm">
-          No spending this month yet
+          No spending in this period yet
         </div>
       ) : (
         <ResponsiveContainer width="100%" height={220}>

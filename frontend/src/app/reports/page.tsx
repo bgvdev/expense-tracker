@@ -124,10 +124,10 @@ export default function ReportsPage() {
                   </span>
                   <div className="min-w-0">
                     <p className="text-white/40 text-xs">Avg Daily Spend</p>
-                    <p className="text-white font-bold text-base">
+                    <p className="text-white font-bold text-base truncate">
                       {new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(summary.avgDailySpend)}
                     </p>
-                    <p className="text-white/30 text-xs">{range.from || range.to ? rangeLabel : "This month"}</p>
+                    <p className="text-white/30 text-xs truncate">{range.from || range.to ? rangeLabel : "This month"}</p>
                   </div>
                 </div>
               </div>

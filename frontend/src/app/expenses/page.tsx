@@ -181,16 +181,16 @@ function ExpensesContent() {
             loading={expensesLoading}
           />
           {isFiltered && (
-            <div className="rounded-2xl bg-indigo-500/10 border border-indigo-500/25 backdrop-blur-sm p-5 flex items-center gap-4 ring-1 ring-indigo-500/20">
-              <div className="h-12 w-12 rounded-xl bg-indigo-500/25 flex items-center justify-center shrink-0">
-                <span className="material-symbols-rounded text-2xl text-indigo-300">filter_alt</span>
+            <div className="rounded-2xl bg-indigo-500/10 border border-indigo-500/25 backdrop-blur-sm p-3 sm:p-5 flex items-center gap-2.5 sm:gap-4 ring-1 ring-indigo-500/20 min-w-0">
+              <div className="h-9 w-9 sm:h-12 sm:w-12 rounded-xl bg-indigo-500/25 flex items-center justify-center shrink-0">
+                <span className="material-symbols-rounded text-xl sm:text-2xl text-indigo-300">filter_alt</span>
               </div>
               <div className="min-w-0">
-                <p className="text-xs text-indigo-300/70 font-semibold uppercase tracking-widest">Filtered</p>
-                <p className="text-2xl font-extrabold text-indigo-300 truncate">
+                <p className="text-[10px] sm:text-xs text-indigo-300/70 font-semibold uppercase tracking-widest truncate">Filtered</p>
+                <p className="text-base sm:text-2xl font-extrabold text-indigo-300 truncate">
                   ₹{filteredTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                 </p>
-                <p className="text-xs text-indigo-300/50 mt-0.5">
+                <p className="text-[10px] sm:text-xs text-indigo-300/50 mt-0.5 truncate">
                   {filteredCount} of {totalCount} overall
                 </p>
               </div>

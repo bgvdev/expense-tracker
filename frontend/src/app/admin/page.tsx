@@ -51,12 +51,12 @@ function StatCard({
   sub: string;
 }) {
   return (
-    <div className="rounded-xl bg-white/5 border border-white/10 px-5 py-5 flex flex-col gap-2">
+    <div className="rounded-xl bg-white/5 border border-white/10 px-3 py-4 sm:px-5 sm:py-5 flex flex-col gap-2 min-w-0">
       <span className="material-symbols-rounded text-[22px] text-indigo-400">{icon}</span>
-      <p className="text-2xl font-bold text-white">{value}</p>
-      <div>
-        <p className="text-sm font-medium text-white/80">{label}</p>
-        <p className="text-xs text-white/40">{sub}</p>
+      <p className="text-lg sm:text-2xl font-bold text-white truncate">{value}</p>
+      <div className="min-w-0">
+        <p className="text-sm font-medium text-white/80 truncate">{label}</p>
+        <p className="text-xs text-white/40 truncate">{sub}</p>
       </div>
     </div>
   );

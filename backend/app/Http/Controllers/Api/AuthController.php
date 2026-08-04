@@ -22,6 +22,9 @@ use Illuminate\Support\Facades\Mail;
 
 class AuthController extends Controller
 {
+    /** Incorrect OTP submissions allowed before the reset token is discarded. */
+    private const MAX_OTP_ATTEMPTS = 5;
+
     public function register(RegisterRequest $request): JsonResponse
     {
         $user  = User::create($request->validated());
@@ -113,7 +116,15 @@ class AuthController extends Controller
 
         $user->update(['password' => $request->new_password]);
 
-        return response()->json(['message' => 'Password updated successfully.']);
+        // Revoke every existing token, then re-issue one for this session.
+        // Without this a stolen bearer token survived the password change.
+        $user->tokens()->delete();
+        $token = $user->createToken('api-token')->plainTextToken;
+
+        return response()->json([
+            'message' => 'Password updated successfully.',
+            'token'   => $token,
+        ]);
     }
 
     public function forgotPassword(ForgotPasswordRequest $request): JsonResponse
@@ -130,7 +141,8 @@ class AuthController extends Controller
 
         DB::table('password_reset_tokens')->updateOrInsert(
             ['email' => $user->email],
-            ['token' => Hash::make($otp), 'created_at' => now()],
+            // attempts resets to 0: a newly requested OTP starts with a full budget.
+            ['token' => Hash::make($otp), 'created_at' => now(), 'attempts' => 0],
         );
 
         try {
@@ -165,6 +177,25 @@ class AuthController extends Controller
         }
 
         if (! Hash::check($request->otp, $row->token)) {
+            // Per-account attempt limit. The shared per-IP throttle on the auth
+            // group is not enough on its own: it is one bucket for login and
+            // reset together, and it does not stop a distributed guessing attempt
+            // against a single account. A 6-digit OTP is only 10^6 wide.
+            $attempts = ($row->attempts ?? 0) + 1;
+
+            if ($attempts >= self::MAX_OTP_ATTEMPTS) {
+                DB::table('password_reset_tokens')->where('email', $request->email)->delete();
+
+                return response()->json([
+                    'message' => 'Too many incorrect attempts. Please request a new OTP.',
+                    'errors'  => ['otp' => ['Too many incorrect attempts. Please request a new OTP.']],
+                ], 422);
+            }
+
+            DB::table('password_reset_tokens')
+                ->where('email', $request->email)
+                ->update(['attempts' => $attempts]);
+
             return response()->json([
                 'message' => 'Invalid or expired OTP.',
                 'errors'  => ['otp' => ['Invalid or expired OTP.']],
@@ -173,6 +204,10 @@ class AuthController extends Controller
 
         $user = User::where('email', $request->email)->first();
         $user->update(['password' => $request->password]);
+
+        // Anyone holding a token issued before the reset must be locked out —
+        // that is the whole point of resetting a possibly-compromised password.
+        $user->tokens()->delete();
 
         DB::table('password_reset_tokens')->where('email', $request->email)->delete();
 

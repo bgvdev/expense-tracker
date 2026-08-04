@@ -43,6 +43,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | API Rate Limit
+    |--------------------------------------------------------------------------
+    |
+    | Requests per minute allowed on every /api route, keyed by authenticated
+    | user (falling back to IP for guests). Defined here rather than read via
+    | env() at the call site because env() returns null once config is cached.
+    |
+    */
+
+    'api_rate_limit' => (int) env('API_RATE_LIMIT', 120),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application URL
     |--------------------------------------------------------------------------
     |

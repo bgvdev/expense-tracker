@@ -47,7 +47,10 @@ return [
     |
     */
 
-    'expiration' => null,
+    // Finite by default (7 days). Tokens are stored in the browser's
+    // localStorage, so a null expiration meant a leaked token stayed valid
+    // forever. Override with SANCTUM_TOKEN_EXPIRATION (minutes).
+    'expiration' => (int) env('SANCTUM_TOKEN_EXPIRATION', 60 * 24 * 7),
 
     /*
     |--------------------------------------------------------------------------

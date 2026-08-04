@@ -1,13 +1,23 @@
 #!/bin/sh
 set -e
 
-# Fix storage permissions (handles bind-mount ownership differences)
+# Fix storage permissions (handles bind-mount ownership differences).
+# These are no-ops when the container already runs as www-data.
 chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache 2>/dev/null || true
 chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache 2>/dev/null || true
 
-# Generate app key if not set
+# APP_KEY must be provided by the environment. Generating one here would write a
+# NEW key on every boot: on a container with an ephemeral filesystem that
+# silently invalidates every encrypted payload and signed URL after each restart,
+# which is far worse than refusing to start.
 if [ -z "$APP_KEY" ]; then
-    php artisan key:generate --force
+    if [ "${APP_ENV:-production}" = "local" ]; then
+        echo "APP_KEY is empty; generating an ephemeral key for local development." >&2
+        php artisan key:generate --force
+    else
+        echo "FATAL: APP_KEY is not set. Set it in the environment (php artisan key:generate --show)." >&2
+        exit 1
+    fi
 fi
 
 # Neon's pooler (PgBouncer in transaction mode) is incompatible with Laravel's
@@ -45,6 +55,21 @@ done
 if [ "$migrated" -ne 1 ]; then
     echo "FATAL: migrations did not succeed after 10 attempts — refusing to start." >&2
     exit 1
+fi
+
+# Cache config and routes so they are not re-parsed and re-registered on every
+# request. This must happen HERE and not in the Dockerfile: caching at build time
+# would freeze the build environment's (empty) env values into the cache, since
+# env() is only read when the cache is written.
+#
+# Skipped in local dev, where the bind-mounted source changes constantly and a
+# stale cache is more confusing than the small performance cost.
+if [ "${APP_ENV:-production}" != "local" ]; then
+    php artisan config:cache
+    php artisan route:cache
+else
+    php artisan config:clear
+    php artisan route:clear
 fi
 
 # Start PHP-FPM in background

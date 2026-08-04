@@ -75,10 +75,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updatePassword = async (data: UpdatePasswordData) => {
-    await apiFetch("/api/auth/password", {
+    // Changing the password revokes every existing token server-side, so the
+    // response carries a freshly issued one. Store it, or the next request would
+    // 401 and log the user out mid-session.
+    const res = await apiFetch<{ token: string }>("/api/auth/password", {
       method: "PATCH",
       json: data,
     });
+    if (res?.token) localStorage.setItem("auth_token", res.token);
   };
 
   return (

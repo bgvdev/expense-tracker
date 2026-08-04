@@ -114,8 +114,18 @@ docker compose exec web sh
 docker compose exec api php artisan migrate:status
 docker compose exec api php artisan tinker
 
-# Run npm commands
+# Run the backend gates (pint / phpunit).
+# The image is built with `composer install --no-dev`, so the dev tools are not
+# present until you install them once into the backend_vendor volume:
+docker compose exec api composer install
+docker compose exec api php artisan package:discover   # registers the dev packages
+docker compose exec api ./vendor/bin/pint --test
+docker compose exec api php artisan test
+
+# Run npm commands / the frontend gates
 docker compose exec web npm install <package>
+docker compose exec web npm run lint
+docker compose exec web npx tsc --noEmit
 
 # Stop containers (keeps volumes)
 docker compose down

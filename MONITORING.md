@@ -10,24 +10,25 @@ GET https://expense-tracker-funw.onrender.com/api/health
 
 Expected response:
 ```json
-{"status": "ok"}
+{"status": "ok", "database": "ok"}
 ```
 
 HTTP status: `200 OK`
 
-Use this URL in any uptime monitor. It checks that Nginx, PHP-FPM, and the Laravel router are all alive. It does **not** check the database connection.
+When the database is unreachable it returns `503 Service Unavailable`:
+```json
+{"status": "error", "database": "unavailable"}
+```
+
+Use this URL in any uptime monitor. It verifies Nginx, PHP-FPM, the Laravel
+router **and** the database connection (via a `select 1`). This matters because
+Render gates deploys on this endpoint: a static 200 could not distinguish a
+healthy deploy from one whose migrations had failed.
 
 ### Database connectivity check
 
-```bash
-# Via Render Shell
-php artisan db:show
-```
-
-Or add a DB-checking endpoint (not currently implemented):
-```
-GET /api/health/db   → checks DB connection + query latency
-```
+`/api/health` already covers this. The endpoint is the check — there is no need
+for a Render Shell session (which is unavailable on the free plan anyway).
 
 ---
 
@@ -80,28 +81,37 @@ This has the side effect of keeping the service warm.
 
 ---
 
-## Error Monitoring (Not Yet Implemented)
+## Error Monitoring — Sentry (implemented on both runtimes)
 
-Consider adding Sentry for production error tracking:
+Sentry is already installed and wired. There is nothing to install; only the DSNs
+need to be set. Both runtimes are **inert when their DSN is empty**, so local dev
+stays quiet.
 
-**Backend:**
-```bash
-composer require sentry/sentry-laravel
-```
+**Backend** — `sentry/sentry-laravel`, registered via `Integration::handles()` in
+`backend/bootstrap/app.php`, configured by `backend/config/sentry.php`:
 
 ```dotenv
 SENTRY_LARAVEL_DSN=https://xxx@xxx.ingest.sentry.io/xxx
+SENTRY_TRACES_SAMPLE_RATE=0.2
 ```
 
-**Frontend:**
-```bash
-npm install @sentry/nextjs
-npx @sentry/wizard@latest -i nextjs
-```
+Set in the Render dashboard (declared in `render.yaml` with `sync: false`).
+
+**Frontend** — `@sentry/nextjs`, wrapped by `withSentryConfig` in
+`frontend/next.config.ts`, with `sentry.server.config.ts`,
+`sentry.edge.config.ts`, `src/instrumentation.ts` and
+`src/instrumentation-client.ts`:
 
 ```dotenv
 NEXT_PUBLIC_SENTRY_DSN=https://xxx@xxx.ingest.sentry.io/xxx
 ```
+
+Set in Vercel project settings. Source-map upload runs only when
+`SENTRY_AUTH_TOKEN`, `SENTRY_ORG` and `SENTRY_PROJECT` are all present, so builds
+without them still succeed (maps upload skipped).
+
+> Only the post-deploy Sentry *release-tagging* step was removed. Runtime error
+> reporting is live.
 
 ---
 

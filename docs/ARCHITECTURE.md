@@ -168,9 +168,16 @@ frontend/src/
 
 ```mermaid
 graph LR
-    Browser -->|:3000| Web[web container<br/>node:20-alpine<br/>npm run dev]
+    Browser -->|:13000| Web[web container<br/>node:20-alpine<br/>npm run dev]
     Web -.->|hot reload| Src[./frontend/src]
-    Browser -->|:8000| API[api container<br/>Nginx + PHP-FPM]
-    API -->|:5432| DB[db container<br/>postgres:15]
+    Web -->|/api/* rewrite<br/>api:8000| API[api container<br/>Nginx + PHP-FPM<br/>runs as www-data]
+    Browser -->|:18000 direct| API
+    API -->|db:5432| DB[db container<br/>postgres:15]
     API -.->|bind mount| BackendSrc[./backend]
 ```
+
+Host ports (`13000`/`18000`/`15432`) are deliberately off the defaults and are
+configurable via `WEB_HOST_PORT`, `API_HOST_PORT` and `DB_HOST_PORT`.
+Container-internal ports never change. In normal use the browser only talks to
+`:13000` — the `/api/*` rewrite proxies to the API, so no cross-origin request is
+ever made.

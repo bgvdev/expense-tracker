@@ -24,53 +24,59 @@ git clone <your-repo-url> expense-tracker
 cd expense-tracker
 ```
 
-### 2. Create the backend env file
+### 2. Create the root env file
+
+**Docker Compose reads the repo-root `.env` and only that file** — it does not
+read `backend/.env` when interpolating `docker-compose.yml`. This is the single
+most common first-run mistake.
 
 ```bash
-cp backend/.env.example backend/.env
+cp .env.example .env
 ```
 
-Open `backend/.env` and set at minimum:
+Open `.env` and set at minimum:
 
 ```dotenv
-APP_KEY=          # generated in step 3
+APP_KEY=               # generated in step 3
 DB_PASSWORD=changeme   # any password you choose
 SEED_TEST_USER=true    # creates test@example.com/password on first run
 ```
 
+Under Docker you do **not** need `backend/.env` at all: the `api` service gets
+its configuration from the `environment:` block in `docker-compose.yml`.
+`backend/.env` is only for running the backend standalone (Option B).
+
 ### 3. Generate the application key
 
 ```bash
-docker run --rm -v "$PWD/backend":/app -w /app php:8.3-cli php artisan key:generate
+docker compose run --rm api php artisan key:generate --show
 ```
 
-Or after the containers are up:
+Copy the printed `base64:…` value into `APP_KEY` in the root `.env`. Outside
+`APP_ENV=local` the container now refuses to boot without it, rather than
+generating a throwaway key on every restart.
 
-```bash
-docker compose exec api php artisan key:generate
-```
-
-### 4. Create the frontend env file
-
-```bash
-cp frontend/.env.example frontend/.env.local
-# Default value (http://localhost:8000) is correct for Docker — no changes needed
-```
-
-### 5. Start all services
+### 4. Start all services
 
 ```bash
 docker compose up --build   # first run (builds images, runs migrations, seeds db)
 docker compose up           # subsequent runs
 ```
 
-### 6. Verify everything is running
+### 5. Verify everything is running
+
+Host ports are deliberately **off the defaults** so the stack can coexist with
+other projects. Override them with `WEB_HOST_PORT`, `API_HOST_PORT` and
+`DB_HOST_PORT` in the root `.env`.
 
 | URL | Expected |
 |-----|----------|
-| http://localhost:3000 | Next.js login page |
-| http://localhost:8000/api/health | `{"status":"ok"}` |
-| http://localhost:5432 | PostgreSQL (via psql or TablePlus) |
+| http://localhost:13000 | Next.js login page |
+| http://localhost:18000/api/health | `{"status":"ok","database":"ok"}` |
+| `localhost:15432` | PostgreSQL (via psql or a GUI client) |
+
+The health endpoint verifies the database, so a `503` with
+`{"database":"unavailable"}` means the API is up but cannot reach Postgres.
 
 ### Default test credentials (local only)
 
@@ -111,18 +117,27 @@ php artisan serve     # http://localhost:8000
 cd frontend
 npm install
 cp .env.example .env.local
-# Set NEXT_PUBLIC_API_URL=http://localhost:8000 (or production URL)
+# Set BACKEND_URL=http://localhost:8000 — the proxy target for the /api/* rewrite
 npm run dev           # http://localhost:3000
 ```
+
+`BACKEND_URL` is the variable that matters: `src/lib/api.ts` only ever issues
+relative `/api/*` requests, which the Next.js rewrite proxies. It is read at
+**build** time, so a runtime-only value has no effect on a built image.
+`NEXT_PUBLIC_API_URL` is not read by any application code.
 
 ---
 
 ## Troubleshooting
 
-**`DB_PASSWORD must be set in .env`** — Docker Compose now requires `DB_PASSWORD` to be set explicitly. Add it to `backend/.env`.
+**`DB_PASSWORD must be set in .env`** — set it in the **repo-root** `.env`, not `backend/.env`. Compose only interpolates from the root file.
 
-**Port already in use** — Check for conflicting processes: `lsof -i :8000` or `lsof -i :3000`.
+**`FATAL: APP_KEY is not set`** — set `APP_KEY` in the root `.env` (step 3). The container fails fast instead of generating a new key each boot, which would invalidate encrypted payloads on every restart.
 
-**Migrations fail on first run** — The `api` container waits for the database healthcheck (up to 30 seconds). If it keeps failing, run `docker compose logs db` to investigate.
+**Port already in use** — Check for conflicting processes: `lsof -i :18000` or `lsof -i :13000`. Or change `API_HOST_PORT` / `WEB_HOST_PORT` in the root `.env`.
 
-**Frontend shows "Is the API running?"** — Verify `NEXT_PUBLIC_API_URL` in `frontend/.env.local` and that the `api` container is healthy (`docker compose ps`).
+**`api` container exits immediately / restarts in a loop** — migrations failed. The entrypoint retries 10 times and then exits non-zero rather than serving traffic against an un-migrated schema. Run `docker compose logs api` for the migration error and `docker compose logs db` to check the database.
+
+**Frontend shows "Is the API running?"** — Confirm `BACKEND_URL` reaches the API and that `api` is up (`docker compose ps`, then `curl localhost:18000/api/health`).
+
+**`EACCES` running `npm run lint` / `npm run build` on the host** — `frontend/node_modules` and `.next` are created by the container as root. Either run the commands inside the container (`docker compose exec web npm run lint`) or reclaim ownership: `sudo chown -R "$USER" frontend/node_modules frontend/.next`.

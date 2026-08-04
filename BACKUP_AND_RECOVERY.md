@@ -31,6 +31,12 @@ Store backups in a safe location (S3, local encrypted drive, etc.). Do not commi
 
 ### Automated Backup Script
 
+> **Not implemented.** The script below is a reference implementation only — there
+> is no `backup.sh` in this repository and nothing schedules it. Backups currently
+> rely entirely on Neon's built-in point-in-time recovery. If you need file-level
+> dumps, save this as `backup.sh` outside the repo (or add it and keep the output
+> path outside the working tree — `*.sql`/`*.sql.gz` are gitignored).
+
 ```bash
 #!/bin/bash
 # backup.sh — run via cron or scheduled task

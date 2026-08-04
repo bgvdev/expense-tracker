@@ -51,6 +51,14 @@ services:
     volumes:
       - ./backend:/var/www/html
       - backend_vendor:/var/www/html/vendor
+      # storage/ and bootstrap/cache MUST be container-owned volumes, not part of
+      # the bind mount. The container runs as www-data and therefore cannot chown
+      # host-owned paths, so a fresh clone would fail with "The bootstrap/cache
+      # directory must be present and writable". Named volumes are initialised
+      # from the image, where both are already owned by www-data.
+      # To read the Laravel log: docker compose exec api cat storage/logs/laravel.log
+      - backend_storage:/var/www/html/storage
+      - backend_bootstrap_cache:/var/www/html/bootstrap/cache
     depends_on:
       db:
         condition: service_healthy
@@ -99,6 +107,8 @@ services:
 volumes:
   db_data:
   backend_vendor:
+  backend_storage:
+  backend_bootstrap_cache:
   frontend_node_modules:
 
 networks:

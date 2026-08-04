@@ -1,10 +1,24 @@
 #!/bin/sh
 set -e
 
-# Fix storage permissions (handles bind-mount ownership differences).
-# These are no-ops when the container already runs as www-data.
+# Fix storage permissions where possible. Both are no-ops when running as
+# www-data (the normal case), which cannot chown paths it does not own.
 chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache 2>/dev/null || true
 chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache 2>/dev/null || true
+
+# Verify writability up front. Without this check, an unwritable directory
+# surfaces as a Monolog "could not be opened in append mode" stack trace on every
+# migration attempt, which buries the actual cause.
+for dir in /var/www/html/storage/logs /var/www/html/storage/framework /var/www/html/bootstrap/cache; do
+    mkdir -p "$dir" 2>/dev/null || true
+    if ! [ -w "$dir" ]; then
+        echo "FATAL: $dir is not writable by $(id -un)." >&2
+        echo "  Under Docker Compose, storage/ and bootstrap/cache must be mounted as" >&2
+        echo "  named volumes rather than through the ./backend bind mount — the" >&2
+        echo "  container runs unprivileged and cannot chown host-owned paths." >&2
+        exit 1
+    fi
+done
 
 # APP_KEY must be provided by the environment. Generating one here would write a
 # NEW key on every boot: on a container with an ephemeral filesystem that

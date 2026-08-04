@@ -22,7 +22,7 @@ export default function CategoriesPage() {
 
 function CategoriesContent() {
   const { user } = useAuth();
-  const { categories, loading: catLoading, fetchCategories, addCategory, updateCategory, removeCategory } = useCategories();
+  const { categories, loading: catLoading, error: catError, fetchCategories, addCategory, updateCategory, removeCategory } = useCategories();
   // Per-category counts must reflect the user's overall expenses, not one page of them.
   const { expenses, loading: expensesLoading } = useAllExpenses();
   const { showToast } = useToast();
@@ -115,6 +115,15 @@ function CategoriesContent() {
             <span className="hidden sm:inline">New Category</span>
           </button>
         </div>
+
+        {catError && (
+          <p
+            role="alert"
+            className="mb-6 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300"
+          >
+            {catError}
+          </p>
+        )}
 
         {loading ? (
           <div className="flex items-center justify-center py-20 text-white/30 gap-3">

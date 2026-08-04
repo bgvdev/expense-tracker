@@ -13,7 +13,9 @@ class ExpenseController extends Controller
 {
     public function index(Request $request)
     {
-        $perPage = min((int) $request->query('per_page', 15), 100);
+        // Clamp both ends: per_page=0 divides by zero computing the last page and
+        // a negative value emits a negative LIMIT — both surface as a 500.
+        $perPage = max(1, min((int) $request->query('per_page', 15), 100));
 
         $expenses = auth()->user()
             ->expenses()

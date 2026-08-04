@@ -18,6 +18,7 @@ MIGRATE_DB_URL="${DB_MIGRATE_URL:-${DATABASE_URL}}"
 
 # Run migrations + seed (with retry in case DB is still starting up).
 echo "Waiting for database..."
+migrated=0
 for i in $(seq 1 10); do
     if DATABASE_URL="${MIGRATE_DB_URL}" php artisan migrate --force; then
         # Reference data: the default categories must exist in every environment.
@@ -30,10 +31,21 @@ for i in $(seq 1 10); do
         if [ "${SEED_TEST_USER:-false}" = "true" ]; then
             php artisan db:seed --force
         fi
+        migrated=1
         break
     fi
+    echo "Migration attempt ${i}/10 failed; retrying in 3s..."
     sleep 3
 done
+
+# Fail the boot loudly rather than serving traffic against an un-migrated schema.
+# Previously this loop fell through silently: PHP-FPM and Nginx started anyway,
+# /api/health returned 200, and Render's health gate routed traffic to a deploy
+# whose migrations had never run.
+if [ "$migrated" -ne 1 ]; then
+    echo "FATAL: migrations did not succeed after 10 attempts — refusing to start." >&2
+    exit 1
+fi
 
 # Start PHP-FPM in background
 php-fpm -D

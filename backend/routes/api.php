@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\ExpenseController;
 use App\Http\Controllers\Api\PaymentMethodController;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -16,7 +17,21 @@ use Illuminate\Support\Facades\Route;
 */
 
 // Public routes
-Route::get('/health', fn () => response()->json(['status' => 'ok']));
+//
+// Render gates traffic on this endpoint, so it must actually verify the database:
+// a static 200 could not distinguish a healthy deploy from one whose migrations
+// failed, which defeated the point of the health gate.
+Route::get('/health', function () {
+    try {
+        DB::select('select 1');
+    } catch (Throwable $e) {
+        report($e);
+
+        return response()->json(['status' => 'error', 'database' => 'unavailable'], 503);
+    }
+
+    return response()->json(['status' => 'ok', 'database' => 'ok']);
+});
 
 // Auth — public (rate-limited to 10 requests/minute per IP)
 Route::prefix('auth')->middleware('throttle:10,1')->group(function () {

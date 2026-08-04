@@ -1,7 +1,20 @@
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
 
-const BACKEND_URL = process.env.BACKEND_URL ?? "https://expense-tracker-funw.onrender.com";
+// rewrites() is evaluated at BUILD time and baked into routes-manifest.json, so
+// BACKEND_URL must be supplied as a build arg — a runtime env var arrives too late.
+//
+// There is deliberately no production URL fallback here. A previous default of
+// https://expense-tracker-funw.onrender.com meant `npm run dev` without
+// BACKEND_URL silently proxied every /api/* call — including auth/register — to
+// the live production backend.
+const BACKEND_URL = process.env.BACKEND_URL ?? "http://localhost:8000";
+
+if (!process.env.BACKEND_URL && process.env.NODE_ENV === "production") {
+  throw new Error(
+    "BACKEND_URL must be set for a production build — it is baked into the /api/* rewrite at build time."
+  );
+}
 
 const nextConfig: NextConfig = {
   output: "standalone",

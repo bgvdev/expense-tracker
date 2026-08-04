@@ -15,9 +15,14 @@ COPY package.json package-lock.json* ./
 RUN npm ci --prefer-offline
 COPY . .
 
-# Build-time env — Vercel/CI injects NEXT_PUBLIC_API_URL as a build arg
-ARG NEXT_PUBLIC_API_URL
-ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+# The production stage copies /app/public unconditionally; ensure it exists even
+# when the project ships no static assets (Docker COPY cannot be conditional).
+RUN mkdir -p public
+
+# BACKEND_URL is baked into the /api/* rewrite by next.config.ts at build time,
+# so it must be a build arg — setting it at runtime has no effect on the rewrite.
+ARG BACKEND_URL
+ENV BACKEND_URL=${BACKEND_URL}
 
 RUN npm run build
 

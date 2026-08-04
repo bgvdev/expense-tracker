@@ -78,13 +78,25 @@ class AuthController extends Controller
 
     public function updateProfile(UpdateProfileRequest $request): JsonResponse
     {
-        $user = $request->user();
-        $user->update($request->validated());
+        $user      = $request->user();
+        $validated = $request->validated();
 
+        // Changing the email invalidates any prior verification of it. Set
+        // directly rather than via update() — email_verified_at is deliberately
+        // not mass-assignable.
+        if (array_key_exists('email', $validated) && $validated['email'] !== $user->email) {
+            $user->email_verified_at = null;
+        }
+
+        $user->fill($validated)->save();
+
+        // is_admin must be included: the client replaces its whole user object
+        // with this response, so omitting it silently strips admin rights.
         return response()->json([
-            'id'    => $user->id,
-            'name'  => $user->name,
-            'email' => $user->email,
+            'id'       => $user->id,
+            'name'     => $user->name,
+            'email'    => $user->email,
+            'is_admin' => (bool) $user->is_admin,
         ]);
     }
 

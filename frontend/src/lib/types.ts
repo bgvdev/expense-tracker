@@ -54,7 +54,10 @@ export interface User {
   id: number;
   name: string;
   email: string;
-  is_admin?: boolean;
+  // Required, not optional: every endpoint that returns a User returns this.
+  // Making it optional let PATCH /auth/profile omit it and silently strip
+  // admin rights from the client's user object without a type error.
+  is_admin: boolean;
 }
 
 export interface AuthResponse {

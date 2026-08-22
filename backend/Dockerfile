@@ -11,11 +11,15 @@ RUN apt-get update && apt-get install -y \
     zip \
     unzip \
     nginx \
-    && docker-php-ext-install pdo pdo_pgsql pgsql mbstring exif pcntl bcmath gd \
+    && docker-php-ext-install pdo pdo_pgsql pgsql mbstring exif pcntl bcmath gd opcache \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install Composer directly (no multi-stage, avoids IPv6 registry issue)
 RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+
+# PHP tuning (OPcache + realpath cache). Without this, OPcache ships with the
+# base image but stays disabled, so every request recompiles the framework.
+COPY docker/php.ini /usr/local/etc/php/conf.d/zz-app.ini
 
 WORKDIR /var/www/html
 

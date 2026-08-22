@@ -31,6 +31,12 @@
 | `API_RATE_LIMIT` | No | `120` | Requests per minute on every `/api` route, keyed by authenticated user (falling back to IP) |
 | `BCRYPT_ROUNDS` | No | `12` | Password hashing cost |
 
+### Cache
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `CACHE_STORE` | No | `file` | Cache driver. **Deliberately not the framework default of `database`**: every `/api` route passes through the `throttle:api` limiter, which reads and writes the cache store, and on the `database` driver each request therefore paid two extra round trips to Postgres before reaching the handler. `file` keeps them inside the container. Only correct while there is a single web instance — a multi-instance deploy needs `redis`, otherwise each instance grants its own rate-limit budget |
+
 ### Mail
 
 Required in any environment that must actually send email. Without them

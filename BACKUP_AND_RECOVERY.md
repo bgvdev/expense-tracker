@@ -98,7 +98,7 @@ If a bad deploy causes issues:
 | Item | Reason |
 |------|--------|
 | Uploaded files | No file uploads exist in this app |
-| Redis cache | Cache is not used (SESSION_DRIVER=cookie, CACHE_STORE=database) |
+| Redis cache | No shared cache to back up (SESSION_DRIVER=cookie; CACHE_STORE=file, holding only rate-limit counters, which are safe to lose) |
 | Application logs | Render streams logs — they are not persisted beyond ~7 days |
 | Docker volumes (local) | Local-only; not production data |
 

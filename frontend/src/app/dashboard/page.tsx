@@ -2,7 +2,6 @@
 
 import { useMemo, useEffect, useState } from "react";
 import Link from "next/link";
-import { useExpenses } from "@/hooks/useExpenses";
 import { useAllExpenses } from "@/hooks/useAllExpenses";
 import { useExpenseSummary } from "@/hooks/useExpenseSummary";
 import { useAuth } from "@/hooks/useAuth";
@@ -20,6 +19,9 @@ import AppShell from "@/components/layout/AppShell";
 import RequireAuth from "@/components/layout/RequireAuth";
 import type { Expense } from "@/lib/types";
 
+/** How many of the newest expenses the "Recent Expenses" card shows. */
+const RECENT_LIMIT = 10;
+
 export default function DashboardPage() {
   return (
     <RequireAuth>
@@ -32,8 +34,18 @@ export default function DashboardPage() {
 
 function DashboardContent() {
   const { user } = useAuth();
-  const { expenses, meta, loading: expensesLoading, error, addExpense, updateExpense, removeExpense } = useExpenses(1, 10);
-  const { expenses: allExpenses, loading: allExpensesLoading, refetch: refetchAllExpenses } = useAllExpenses();
+  // One expense fetch, not two: this page previously ran useExpenses(1, 10)
+  // alongside useAllExpenses(), so the ten most recent rows were fetched twice
+  // over. The "Recent Expenses" list is just the head of the full list, which
+  // the API already returns newest-first.
+  const {
+    expenses: allExpenses,
+    loading: allExpensesLoading,
+    error,
+    addExpense,
+    updateExpense,
+    removeExpense,
+  } = useAllExpenses();
   const { thisMonth, loading: summaryLoading, fetchSummary } = useExpenseSummary();
   const { categories, loading: catLoading, fetchCategories } = useCategories();
   const { paymentMethods, fetchPaymentMethods } = usePaymentMethods();
@@ -48,6 +60,8 @@ function DashboardContent() {
       fetchPaymentMethods();
     }
   }, [user, fetchCategories, fetchPaymentMethods]);
+
+  const recentExpenses = useMemo(() => allExpenses.slice(0, RECENT_LIMIT), [allExpenses]);
 
   // Category breakdown and total reflect ALL of the user's expenses, not just the
   // 10 most recent ones shown in the "Recent Expenses" list below.
@@ -65,7 +79,7 @@ function DashboardContent() {
       {/* Add Expense Modal */}
       <Modal open={addExpenseOpen} onClose={() => setAddExpenseOpen(false)} title="New Expense">
         <ExpenseForm
-          onAdd={async (data) => { await addExpense(data); await fetchSummary(); await refetchAllExpenses(); setAddExpenseOpen(false); showToast("Expense added!"); }}
+          onAdd={async (data) => { await addExpense(data); await fetchSummary(); setAddExpenseOpen(false); showToast("Expense added!"); }}
           categories={categories}
           catLoading={catLoading}
           paymentMethods={paymentMethods}
@@ -76,7 +90,7 @@ function DashboardContent() {
       {editingExpense && (
         <EditExpenseModal
           expense={editingExpense}
-          onSave={async (id, data) => { await updateExpense(id, data); await fetchSummary(); await refetchAllExpenses(); showToast("Expense updated!"); }}
+          onSave={async (id, data) => { await updateExpense(id, data); await fetchSummary(); showToast("Expense updated!"); }}
           onClose={() => setEditingExpense(null)}
           categories={categories}
           catLoading={catLoading}
@@ -116,11 +130,11 @@ function DashboardContent() {
           />
           <SummaryCard
             label="Transactions"
-            value={meta?.total ?? expenses.length}
+            value={allExpenses.length}
             icon="receipt_long"
             accent="pink"
             isCurrency={false}
-            loading={expensesLoading}
+            loading={allExpensesLoading}
           />
         </div>
 
@@ -145,7 +159,7 @@ function DashboardContent() {
               <div>
                 <h2 className="text-base font-bold text-white">Recent Expenses</h2>
                 <p className="text-xs text-white/35">
-                  {expensesLoading ? "Loading…" : `Last ${expenses.length} of ${meta?.total ?? expenses.length}`}
+                  {allExpensesLoading ? "Loading…" : `Last ${recentExpenses.length} of ${allExpenses.length}`}
                 </p>
               </div>
             </div>
@@ -166,11 +180,11 @@ function DashboardContent() {
           )}
 
           <ExpenseList
-            expenses={expenses}
-            totalCount={meta?.total ?? expenses.length}
-            loading={expensesLoading}
+            expenses={recentExpenses}
+            totalCount={allExpenses.length}
+            loading={allExpensesLoading}
             onEdit={setEditingExpense}
-            onDelete={async (id) => { await removeExpense(id); await fetchSummary(); await refetchAllExpenses(); showToast("Expense deleted."); }}
+            onDelete={async (id) => { await removeExpense(id); await fetchSummary(); showToast("Expense deleted."); }}
           />
         </div>
 

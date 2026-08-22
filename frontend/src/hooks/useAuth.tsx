@@ -33,8 +33,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    // Ping health first to wake a sleeping Render instance before fetchUser hits the DB
-    fetch("/api/health").catch(() => {});
+    // No separate /api/health warm-up ping: it was fired in parallel with
+    // fetchUser(), so both requests queued behind the same cold start and it
+    // bought nothing — it only added a request. Keeping a sleeping backend warm
+    // has to come from outside the browser (see MONITORING.md).
     fetchUser();
   }, [fetchUser]);
 

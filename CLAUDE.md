@@ -83,11 +83,11 @@ src/
   app/           # Next.js App Router pages: login, register, dashboard, settings
   components/    # feature components (ExpenseForm/List/Filters, Category*, Toast, …)
   components/ui/ # reusable primitives: Modal, ColorPicker, IconPicker, PasswordInput
-  hooks/         # useAuth, useExpenses, useCategories, useFilteredExpenses, useToast
+  hooks/         # useAuth, useAllExpenses, useCategories, useFilteredExpenses, useToast
   lib/           # api.ts (fetch wrapper), types.ts (shared interfaces), utils.ts
 ```
 
-`AuthProvider` wraps the entire app in `layout.tsx`; all pages that need auth check `useAuth()`. State hooks are standalone and own one API resource each: `useExpenses` (fetch/add/update/remove), `useCategories` (CRUD over the user's own categories), `useFilteredExpenses` (client-side filtering over the dashboard list). `useToast` provides the app-wide toast notifications. Shared `ui/` primitives back the modals and the category color/icon pickers.
+`AuthProvider` wraps the entire app in `layout.tsx`; all pages that need auth check `useAuth()`. State hooks are standalone and own one API resource each: `useAllExpenses` (fetch/add/update/remove; the single source of expense state for the dashboard, expenses, categories and reports pages), `useCategories` (CRUD over the user's own categories), `useFilteredExpenses` (client-side filtering over the dashboard list). `useToast` provides the app-wide toast notifications. Shared `ui/` primitives back the modals and the category color/icon pickers.
 
 ## Seeding
 
@@ -108,8 +108,40 @@ Code flows: **push to `main` → Render builds the Docker image → entrypoint a
 - **`BACKEND_URL` is a build-time variable** — `next.config.ts` bakes it into the `/api/*` rewrite when the frontend is built, so it must be set as a Vercel env var / Docker `--build-arg`. A production build fails outright if it is missing rather than defaulting to the production backend.
 - **No CI gate** — there is no automated lint/test check on PRs. Run `./vendor/bin/pint --test` and `php artisan test` (backend) / `npm run lint` + `npm run build` (frontend) locally before pushing.
   - If you develop via Docker, run them **inside** the containers — the containers create `frontend/node_modules` and `backend/vendor` as root, so host-side runs hit `EACCES`. The backend image is built `--no-dev`, so pint/phpunit need a one-time `docker compose exec api composer install && docker compose exec api php artisan package:discover`. See `docs/DOCKER_GUIDE.md` → Common Commands.
-- **Free-tier cold starts** — there is no keepalive ping, so Render sleeps the backend after ~15 min of inactivity; the first request after idle incurs a ~50s cold start. This is an accepted tradeoff of the Docker-only setup.
+- **Free-tier cold starts** — Render sleeps the backend after ~15 min of inactivity; the first request after idle was measured at ~34s (and can reach ~50s). Nothing in the codebase can fix this — it needs either a paid plan or the external uptime-monitor ping described in `MONITORING.md`. Do not add a browser-side warm-up ping: one used to be fired in parallel with `/api/auth/me`, where it queued behind the same cold start and bought nothing.
 - **Error monitoring** — Sentry on both runtimes: backend via `sentry/sentry-laravel` (wired in `bootstrap/app.php`, `SENTRY_LARAVEL_DSN`), frontend via `@sentry/nextjs` (`sentry.*.config.ts` + `src/instrumentation*.ts`, `NEXT_PUBLIC_SENTRY_DSN`). Both are inert when their DSN is empty, so local dev stays quiet. (Runtime error reporting still works; only the post-deploy Sentry *release-tagging* step was removed.)
+
+## Performance
+
+The backend runs on 0.1 shared vCPU with the database in another region, so the
+cost of a request is dominated by CPU and by round trips. These choices are
+deliberate — check here before changing them:
+
+- **OPcache is enabled via `backend/docker/php.ini`**, copied into
+  `/usr/local/etc/php/conf.d/` by the Dockerfile. The `php:8.3-fpm` base image
+  ships the extension but leaves it *disabled*, so every request recompiled the
+  framework. `validate_timestamps` stays on (with `revalidate_freq=2`) so the
+  bind-mounted source in local dev is not cached against edits.
+- **`CACHE_STORE=file`, never `database`.** The `throttle:api` limiter touches
+  the cache on every `/api` request; on the database driver that is two extra
+  round trips to Neon per request. Single instance only — see
+  `docs/ENVIRONMENT_VARIABLES.md`.
+- **Outbound mail is deferred**, not sent inline. `register` and
+  `forgotPassword` wrap `Mail::send` in `defer()`, so the Gmail SMTP handshake
+  happens after the response has been flushed to the client.
+- **Date filters must be sargable.** `whereYear()`/`whereMonth()` compile to
+  `extract(... from spent_at) = ?` on Postgres, which cannot use
+  `expense_user_id_spent_at_index`. Use a half-open range instead — see
+  `ExpenseController::summary()`.
+- **The frontend loads the full expense list once per page** (`useAllExpenses`)
+  and filters client-side. Page 1 is fetched first for its `meta.last_page`,
+  then the remaining pages go out **concurrently** — do not turn that back into
+  a sequential loop. Mutations reconcile the local list from the response body
+  rather than re-sweeping every page, and the dashboard derives its "Recent
+  Expenses" from that same list instead of issuing a second paginated request.
+- **`recharts` is loaded with `next/dynamic`** on `/reports` only; it is ~120 kB
+  and used nowhere else. Payment methods are cached at module scope in
+  `usePaymentMethods` since they are read-only reference data.
 
 ## Commands
 

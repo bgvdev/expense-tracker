@@ -20,6 +20,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 
+use function Illuminate\Support\defer;
+
 class AuthController extends Controller
 {
     /** Incorrect OTP submissions allowed before the reset token is discarded. */
@@ -30,11 +32,17 @@ class AuthController extends Controller
         $user  = User::create($request->validated());
         $token = $user->createToken('api-token')->plainTextToken;
 
-        try {
-            Mail::to($user)->send(new WelcomeMail($user));
-        } catch (\Throwable) {
-            // Mail failure must never break registration
-        }
+        // Deferred: an SMTP handshake with Gmail costs the caller seconds of
+        // latency for something they do not wait on. Symfony's Response::send()
+        // calls fastcgi_finish_request(), so deferred callbacks run after the
+        // response has already reached the client.
+        defer(function () use ($user) {
+            try {
+                Mail::to($user)->send(new WelcomeMail($user));
+            } catch (\Throwable) {
+                // Mail failure must never break registration
+            }
+        });
 
         return response()->json([
             'token' => $token,
@@ -145,11 +153,16 @@ class AuthController extends Controller
             ['token' => Hash::make($otp), 'created_at' => now(), 'attempts' => 0],
         );
 
-        try {
-            Mail::to($user)->send(new PasswordResetMail($otp));
-        } catch (\Throwable) {
-            // Mail failure should not expose internal errors
-        }
+        // Deferred for the same reason as the welcome mail in register(): the
+        // response is a fixed generic message either way, so blocking it on the
+        // SMTP round trip only slows the caller down.
+        defer(function () use ($user, $otp) {
+            try {
+                Mail::to($user)->send(new PasswordResetMail($otp));
+            } catch (\Throwable) {
+                // Mail failure should not expose internal errors
+            }
+        });
 
         return response()->json(['message' => $genericMessage]);
     }

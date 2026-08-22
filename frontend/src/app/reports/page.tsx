@@ -1,12 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import dynamic from "next/dynamic";
 import AppShell from "@/components/layout/AppShell";
 import RequireAuth from "@/components/layout/RequireAuth";
-import MonthlyBarChart from "@/components/charts/MonthlyBarChart";
-import CategoryDonutChart from "@/components/charts/CategoryDonutChart";
-import DailyLineChart from "@/components/charts/DailyLineChart";
-import PaymentMethodChart from "@/components/charts/PaymentMethodChart";
 import ReportDateFilter from "@/components/ReportDateFilter";
 import { useReportsData, type DateRange } from "@/hooks/useReportsData";
 
@@ -15,6 +12,30 @@ function LoadingCard({ className = "" }: { className?: string }) {
     <div className={`rounded-2xl bg-white/5 border border-white/10 animate-pulse ${className}`} />
   );
 }
+
+// The four charts pull in recharts, which is ~125 kB of this route's JS and is
+// used nowhere else in the app. Loading them dynamically lets the page shell,
+// the date filter and the summary tiles paint while that chunk downloads —
+// static imports blocked the whole route on it. ssr: false because recharts
+// measures the DOM to size itself, so it renders nothing useful server-side.
+const chartFallback = () => <LoadingCard className="h-72" />;
+
+const MonthlyBarChart = dynamic(() => import("@/components/charts/MonthlyBarChart"), {
+  ssr: false,
+  loading: chartFallback,
+});
+const CategoryDonutChart = dynamic(() => import("@/components/charts/CategoryDonutChart"), {
+  ssr: false,
+  loading: chartFallback,
+});
+const DailyLineChart = dynamic(() => import("@/components/charts/DailyLineChart"), {
+  ssr: false,
+  loading: chartFallback,
+});
+const PaymentMethodChart = dynamic(() => import("@/components/charts/PaymentMethodChart"), {
+  ssr: false,
+  loading: chartFallback,
+});
 
 export default function ReportsPage() {
   const [range, setRange] = useState<DateRange>({ from: null, to: null });

@@ -141,7 +141,7 @@ frontend/src/
 │   └── ExpenseList.tsx     # Expense table/list
 ├── hooks/
 │   ├── useAuth.tsx         # AuthContext + AuthProvider
-│   └── useExpenses.ts      # Expense CRUD state
+│   └── useAllExpenses.ts   # Expense CRUD state (full list, filtered client-side)
 └── lib/
     ├── api.ts              # fetch wrapper (reads NEXT_PUBLIC_API_URL)
     └── types.ts            # Shared TypeScript interfaces

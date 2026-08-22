@@ -33,8 +33,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    // Ping health first to wake a sleeping Render instance before fetchUser hits the DB
-    fetch("/api/health").catch(() => {});
+    // No separate /api/health warm-up ping: it was fired in parallel with
+    // fetchUser(), so both requests queued behind the same cold start and it
+    // bought nothing — it only added a request. Keeping a sleeping backend warm
+    // has to come from outside the browser (see MONITORING.md).
     fetchUser();
   }, [fetchUser]);
 
@@ -75,10 +77,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updatePassword = async (data: UpdatePasswordData) => {
-    await apiFetch("/api/auth/password", {
+    // Changing the password revokes every existing token server-side, so the
+    // response carries a freshly issued one. Store it, or the next request would
+    // 401 and log the user out mid-session.
+    const res = await apiFetch<{ token: string }>("/api/auth/password", {
       method: "PATCH",
       json: data,
     });
+    if (res?.token) localStorage.setItem("auth_token", res.token);
   };
 
   return (

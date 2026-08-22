@@ -1,5 +1,11 @@
 # Refactoring Plan
 
+> **⚠️ HISTORICAL DOCUMENT — do not treat as current.**
+> This is a point-in-time snapshot from **2026-06-08**. It predates the admin
+> panel, payment methods, password reset, reports/charts, and pagination, as well
+> as the P0/P1 remediation of 2026-08. It is kept for provenance only.
+> For current behaviour see `CLAUDE.md` and `docs/ARCHITECTURE.md`.
+
 Status as of 2026-06-08.
 
 ---

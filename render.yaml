@@ -29,6 +29,12 @@ services:
         sync: false             # php artisan key:generate --show, set once in dashboard
       - key: LOG_LEVEL
         value: error
+      - key: APP_NAME
+        value: "Expense Tracker"
+      - key: APP_URL
+        sync: false             # public URL of this service (SMTP EHLO domain, links)
+      - key: BCRYPT_ROUNDS
+        value: "12"
       # ── Database (Neon) ──────────────────────────────────────────────
       - key: DATABASE_URL
         sync: false             # full Neon pooled DSN (used by the app at runtime)
@@ -39,11 +45,51 @@ services:
         value: pgsql
       - key: DB_SSLMODE
         value: require
+      # ── Cache ────────────────────────────────────────────────────────
+      # NOT the framework default of 'database'. Every /api request passes
+      # through the `throttle:api` limiter, which reads and writes the cache
+      # store — on the database driver that is two extra round trips to Neon
+      # before the handler even runs. The file driver keeps them local to the
+      # container. Safe here because there is exactly one web instance; a
+      # multi-instance deploy would need Redis (or memcached) instead, since
+      # per-container files would let each instance grant its own rate budget.
+      - key: CACHE_STORE
+        value: file
       # ── Frontend / CORS ──────────────────────────────────────────────
       - key: CORS_ALLOWED_ORIGINS
         sync: false             # e.g. https://your-app.vercel.app
-      - key: SANCTUM_STATEFUL_DOMAINS
+                                # REQUIRED: there is no production default. An
+                                # empty value allows no cross-origin requests.
+      - key: FRONTEND_URL
+        sync: false             # e.g. https://your-app.vercel.app — used for the
+                                # links in welcome/password-reset emails, which
+                                # otherwise fall back to http://localhost:3000
+      - key: SESSION_SECURE_COOKIE
+        value: "true"
+      # ── Mail (REQUIRED) ──────────────────────────────────────────────
+      # Without these, config/mail.php falls back to the 'log' driver and the
+      # password-reset OTP and welcome emails are silently written to the log
+      # instead of being sent. See backend/.env.example for the Gmail App
+      # Password setup.
+      - key: MAIL_MAILER
+        value: smtp
+      - key: MAIL_HOST
+        value: smtp.gmail.com
+      - key: MAIL_PORT
+        value: "587"
+      - key: MAIL_ENCRYPTION
+        value: tls
+      - key: MAIL_USERNAME
         sync: false
+      - key: MAIL_PASSWORD
+        sync: false             # 16-char Gmail App Password, never a login password
+      - key: MAIL_FROM_ADDRESS
+        sync: false
+      # ── Auth ─────────────────────────────────────────────────────────
+      - key: SANCTUM_TOKEN_EXPIRATION
+        value: "10080"          # 7 days, in minutes
+      - key: API_RATE_LIMIT
+        value: "120"            # requests/minute per authenticated user
       # ── Seeding: never seed the test user in production ───────────────
       - key: SEED_TEST_USER
         value: "false"
@@ -51,4 +97,4 @@ services:
       - key: SENTRY_LARAVEL_DSN
         sync: false
       - key: SENTRY_TRACES_SAMPLE_RATE
-        value: "0.2"
+        value: "0.05"        # 0.2 spent noticeable CPU per request on 0.1 vCPU

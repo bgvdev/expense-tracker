@@ -13,7 +13,9 @@ class ExpenseController extends Controller
 {
     public function index(Request $request)
     {
-        $perPage = min((int) $request->query('per_page', 15), 100);
+        // Clamp both ends: per_page=0 divides by zero computing the last page and
+        // a negative value emits a negative LIMIT — both surface as a 500.
+        $perPage = max(1, min((int) $request->query('per_page', 15), 100));
 
         $expenses = auth()->user()
             ->expenses()
@@ -26,12 +28,17 @@ class ExpenseController extends Controller
 
     public function summary(): JsonResponse
     {
-        $now = now();
+        // A half-open range, not whereYear()+whereMonth(): those compile to
+        // `extract(year from spent_at) = ?` on Postgres, which is not sargable,
+        // so the planner could not use expense_user_id_spent_at_index and fell
+        // back to scanning every one of the user's rows.
+        $start = now()->startOfMonth();
+        $end   = $start->copy()->addMonth();
 
         $thisMonth = auth()->user()
             ->expenses()
-            ->whereYear('spent_at', $now->year)
-            ->whereMonth('spent_at', $now->month)
+            ->where('spent_at', '>=', $start)
+            ->where('spent_at', '<', $end)
             ->sum('amount');
 
         return response()->json(['this_month' => (float) $thisMonth]);

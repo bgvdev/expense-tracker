@@ -11,6 +11,15 @@ coverage/
 build/
 .next/
 out/
+.vercel
+
+# Build caches / artifacts
+*.tsbuildinfo
+
+# Database dumps — BACKUP_AND_RECOVERY.md warns against committing these
+*.sql
+*.sql.gz
+*.dump
 
 # Environment
 .env
@@ -27,11 +36,12 @@ yarn-error.log*
 # Docker
 .docker/
 
-# IDE
+# IDE / OS
 .vscode/
 .idea/
 *.swp
 *.swo
+.DS_Store
 
 # Laravel specific
 public/storage

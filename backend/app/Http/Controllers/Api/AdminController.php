@@ -9,7 +9,6 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 class AdminController
 {
@@ -119,19 +118,10 @@ class AdminController
 
     public function storeCategory(StoreCategoryRequest $request): JsonResponse
     {
-        $slug = Str::slug($request->name);
-        $base = $slug;
-        $i    = 1;
-
-        while (Category::where('slug', $slug)->exists()) {
-            $slug = "{$base}-{$i}";
-            $i++;
-        }
-
         $category = Category::create([
             'user_id' => null,
             'name'    => $request->name,
-            'slug'    => $slug,
+            'slug'    => Category::uniqueSlug($request->name),
             'icon'    => $request->icon,
             'color'   => $request->color,
         ]);

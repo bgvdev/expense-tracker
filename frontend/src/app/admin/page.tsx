@@ -78,6 +78,7 @@ function OverviewTab() {
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [activity, setActivity] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -88,11 +89,21 @@ function OverviewTab() {
         setStats(s);
         setActivity(a);
       })
+      .catch(() => setError("Failed to load admin overview."))
       .finally(() => setLoading(false));
   }, []);
 
   return (
     <div className="space-y-6">
+      {error && (
+        <p
+          role="alert"
+          className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300"
+        >
+          {error}
+        </p>
+      )}
+
       {/* 6 stat cards */}
       {loading ? (
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -258,12 +269,14 @@ function UsersTab({ currentUserId }: { currentUserId: number }) {
   const { showToast } = useToast();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [toggling, setToggling] = useState<number | null>(null);
 
   useEffect(() => {
     apiFetch<AdminUser[]>("/api/admin/users")
       .then(setUsers)
+      .catch(() => setError("Failed to load users."))
       .finally(() => setLoading(false));
   }, []);
 
@@ -316,6 +329,12 @@ function UsersTab({ currentUserId }: { currentUserId: number }) {
 
   return (
     <div className="rounded-xl bg-white/5 border border-white/10 overflow-hidden">
+      {error && (
+        <p role="alert" className="px-5 py-3 text-sm text-red-300 bg-red-500/10 border-b border-red-500/30">
+          {error}
+        </p>
+      )}
+
       {/* Header + search */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-4 border-b border-white/10">
         <p className="text-sm font-semibold text-white">Users</p>
@@ -436,6 +455,7 @@ function CategoriesTab() {
   const { showToast } = useToast();
   const [categories, setCategories] = useState<AdminCategory[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<AdminCategory | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
@@ -443,8 +463,10 @@ function CategoriesTab() {
 
   const load = useCallback(() => {
     setLoading(true);
+    setError(null);
     apiFetch<AdminCategory[]>("/api/admin/categories")
       .then(setCategories)
+      .catch(() => setError("Failed to load global categories."))
       .finally(() => setLoading(false));
   }, []);
 
@@ -521,6 +543,12 @@ function CategoriesTab() {
             Add Category
           </button>
         </div>
+
+        {error && (
+          <p role="alert" className="px-5 py-3 text-sm text-red-300 bg-red-500/10 border-b border-red-500/30">
+            {error}
+          </p>
+        )}
 
         {loading ? (
           <div className="divide-y divide-white/5">

@@ -7,7 +7,6 @@ use App\Http\Requests\StoreCategoryRequest;
 use App\Http\Requests\UpdateCategoryRequest;
 use App\Models\Category;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Str;
 
 class CategoryController extends Controller
 {
@@ -27,20 +26,10 @@ class CategoryController extends Controller
 
     public function store(StoreCategoryRequest $request): JsonResponse
     {
-        $slug = Str::slug($request->name);
-        $base = $slug;
-        $i    = 1;
-
-        // Ensure slug is unique among this user's categories + global ones
-        while (Category::accessibleBy(auth()->id())->where('slug', $slug)->exists()) {
-            $slug = "{$base}-{$i}";
-            $i++;
-        }
-
         $category = Category::create([
             'user_id' => auth()->id(),
             'name'    => $request->name,
-            'slug'    => $slug,
+            'slug'    => Category::uniqueSlug($request->name),
             'icon'    => $request->icon,
             'color'   => $request->color,
         ]);

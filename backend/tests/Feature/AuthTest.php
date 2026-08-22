@@ -2,9 +2,11 @@
 
 namespace Tests\Feature;
 
+use App\Mail\WelcomeMail;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
 
 class AuthTest extends TestCase
@@ -24,6 +26,23 @@ class AuthTest extends TestCase
             ->assertJsonStructure(['token', 'user' => ['id', 'name', 'email']]);
 
         $this->assertDatabaseHas('user', ['email' => 'jane@example.com']);
+    }
+
+    public function test_register_still_sends_the_welcome_mail(): void
+    {
+        // The send is wrapped in defer() so the SMTP round trip happens after the
+        // response is flushed. This guards the regression that would make it look
+        // fine — the mail silently never going out at all.
+        Mail::fake();
+
+        $this->postJson('/api/auth/register', [
+            'name'                  => 'Jane Doe',
+            'email'                 => 'jane@example.com',
+            'password'              => 'password123',
+            'password_confirmation' => 'password123',
+        ])->assertCreated();
+
+        Mail::assertSent(WelcomeMail::class, fn ($mail) => $mail->hasTo('jane@example.com'));
     }
 
     public function test_register_rejects_duplicate_email(): void

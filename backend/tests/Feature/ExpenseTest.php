@@ -75,6 +75,27 @@ class ExpenseTest extends TestCase
         ])->assertNotFound();
     }
 
+    public function test_summary_totals_only_the_current_month_for_the_current_user(): void
+    {
+        $user  = User::factory()->create();
+        $other = User::factory()->create();
+
+        $thisMonth = now()->startOfMonth()->addDays(3);
+
+        // Both boundaries of the month are inclusive of the month itself; the
+        // query is a half-open range, so the first instant of the month must
+        // count and the first instant of the next month must not.
+        Expense::factory()->create(['user_id' => $user->id, 'amount' => 10.50, 'spent_at' => now()->startOfMonth()]);
+        Expense::factory()->create(['user_id' => $user->id, 'amount' => 4.50, 'spent_at' => $thisMonth]);
+        Expense::factory()->create(['user_id' => $user->id, 'amount' => 99, 'spent_at' => now()->startOfMonth()->subSecond()]);
+        Expense::factory()->create(['user_id' => $user->id, 'amount' => 99, 'spent_at' => now()->startOfMonth()->addMonth()]);
+        Expense::factory()->create(['user_id' => $other->id, 'amount' => 99, 'spent_at' => $thisMonth]);
+
+        $this->actingAs($user)->getJson('/api/expenses/summary')
+            ->assertOk()
+            ->assertExactJson(['this_month' => 15.0]);
+    }
+
     public function test_destroy_removes_own_expense(): void
     {
         $user    = User::factory()->create();

@@ -9,7 +9,7 @@ services:
       POSTGRES_USER: ${DB_USERNAME:-laravel}
       POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set in .env}
     ports:
-      - "5432:5432"
+      - "${DB_HOST_PORT:-15432}:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
     networks:
@@ -28,7 +28,7 @@ services:
     container_name: expense_tracker_api
     restart: unless-stopped
     ports:
-      - "8000:8000"
+      - "${API_HOST_PORT:-18000}:8000"
     environment:
       APP_ENV: ${APP_ENV:-local}
       APP_DEBUG: ${APP_DEBUG:-false}
@@ -39,43 +39,79 @@ services:
       DB_DATABASE: ${DB_DATABASE:-expense_tracker}
       DB_USERNAME: ${DB_USERNAME:-laravel}
       DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set in .env}
-      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
-      SANCTUM_STATEFUL_DOMAINS: ${SANCTUM_STATEFUL_DOMAINS:-localhost,127.0.0.1}
+      # Must match the browser origin, i.e. WEB_HOST_PORT below.
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:13000}
+      SANCTUM_TOKEN_EXPIRATION: ${SANCTUM_TOKEN_EXPIRATION:-10080}
+      API_RATE_LIMIT: ${API_RATE_LIMIT:-120}
+      # Matches production: keeps the rate limiter's cache reads/writes out of
+      # the database. See the CACHE_STORE comment in render.yaml.
+      CACHE_STORE: ${CACHE_STORE:-file}
+      # Mail: unset means Laravel falls back to the 'log' driver, so OTP and
+      # welcome emails land in storage/logs instead of being sent. Fine locally.
+      MAIL_MAILER: ${MAIL_MAILER:-log}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:13000}
       SEED_TEST_USER: ${SEED_TEST_USER:-true}
     volumes:
       - ./backend:/var/www/html
       - backend_vendor:/var/www/html/vendor
+      # storage/ and bootstrap/cache MUST be container-owned volumes, not part of
+      # the bind mount. The container runs as www-data and therefore cannot chown
+      # host-owned paths, so a fresh clone would fail with "The bootstrap/cache
+      # directory must be present and writable". Named volumes are initialised
+      # from the image, where both are already owned by www-data.
+      # To read the Laravel log: docker compose exec api cat storage/logs/laravel.log
+      - backend_storage:/var/www/html/storage
+      - backend_bootstrap_cache:/var/www/html/bootstrap/cache
     depends_on:
       db:
         condition: service_healthy
+    healthcheck:
+      # Verifies the DB too, so an api container that cannot reach Postgres is
+      # reported unhealthy rather than merely "running".
+      test: ["CMD-SHELL", "php -r \"exit(@file_get_contents('http://127.0.0.1:8000/api/health') === false ? 1 : 0);\""]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
     networks:
       - expense_net
 
   # ── Next.js Frontend ─────────────────────────────────────────────────────
-  # Uses pre-installed node_modules from host via volume mount.
-  # Run `npm install` in ./frontend on the host before docker compose up.
+  # Dependencies live in the frontend_node_modules volume, which MASKS any
+  # host-side ./frontend/node_modules — there is no need to run npm install on
+  # the host. Note the container creates node_modules/ and .next/ as root, so
+  # host-side `npm run lint` may need `docker compose exec web npm run lint`.
   web:
     image: node:20-alpine
     container_name: expense_tracker_web
     restart: unless-stopped
     working_dir: /app
     ports:
-      - "3000:3000"
+      - "${WEB_HOST_PORT:-13000}:3000"
     environment:
+      # The only variable that affects where API calls go: next.config.ts proxies
+      # /api/* here. Works as a runtime var only because this service runs
+      # `next dev`; a built image needs it as a --build-arg.
       BACKEND_URL: "http://api:8000"
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
       WATCHPACK_POLLING: "true"
       NODE_ENV: development
     volumes:
       - ./frontend:/app
       - frontend_node_modules:/app/node_modules
-    command: sh -c "npm install --prefer-offline 2>/dev/null || true && npm run dev"
+    # Fail loudly if the install fails instead of running `next dev` against an
+    # empty node_modules and reporting a confusing "next: not found".
+    command: sh -c "npm install --prefer-offline && npm run dev"
+    depends_on:
+      api:
+        condition: service_started
     networks:
       - expense_net
 
 volumes:
   db_data:
   backend_vendor:
+  backend_storage:
+  backend_bootstrap_cache:
   frontend_node_modules:
 
 networks:

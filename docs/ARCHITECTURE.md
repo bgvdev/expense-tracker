@@ -143,7 +143,7 @@ frontend/src/
 │   ├── useAuth.tsx         # AuthContext + AuthProvider
 │   └── useAllExpenses.ts   # Expense CRUD state (full list, filtered client-side)
 └── lib/
-    ├── api.ts              # fetch wrapper (reads NEXT_PUBLIC_API_URL)
+    ├── api.ts              # fetch wrapper (relative URLs; the rewrite routes them)
     └── types.ts            # Shared TypeScript interfaces
 ```
 

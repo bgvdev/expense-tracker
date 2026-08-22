@@ -14,7 +14,7 @@ Auth is stateless: Sanctum issues a plain-text Bearer token on login/register, w
 
 ## API proxying (same in local and production)
 
-The frontend **never calls the backend directly** in any environment — `frontend/src/lib/api.ts` uses `BASE_URL = ''`, so every request is a same-origin relative URL (`/api/*`). The Next.js rewrite in `next.config.ts` proxies `/api/:path*` to `BACKEND_URL`, which **defaults to the Render URL** (`https://expense-tracker-funw.onrender.com`) and falls back there in production on Vercel too. This avoids CORS entirely since the browser only ever talks to the same origin.
+The frontend **never calls the backend directly** in any environment — `frontend/src/lib/api.ts` uses `BASE_URL = ''`, so every request is a same-origin relative URL (`/api/*`). The Next.js rewrite in `next.config.ts` proxies `/api/:path*` to `BACKEND_URL`, which defaults to `http://localhost:8000` in dev and has **no production fallback at all** — a production build with it unset fails rather than silently targeting the live backend, so it must be set in Vercel for both Production *and* Preview. This avoids CORS entirely since the browser only ever talks to the same origin.
 
 To target a different backend (e.g. a local API), set `BACKEND_URL` — in `docker-compose.yml` it's `http://api:8000`; standalone, set it in `.env.local`. Do **not** hard-code URLs in `api.ts`; change the proxy destination instead.
 

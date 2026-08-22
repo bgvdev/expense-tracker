@@ -80,13 +80,23 @@ Vercel auto-deploys from the `main` branch. No Dockerfile is used — Vercel's N
 
 ### Required environment variables
 
-Set in Vercel dashboard → Project → Settings → Environment Variables:
+Set in Vercel dashboard → Project → Settings → Environment Variables, for
+**both Production and Preview**:
 
 ```dotenv
-NEXT_PUBLIC_API_URL=https://expense-tracker-funw.onrender.com
+BACKEND_URL=https://expense-tracker-funw.onrender.com
 ```
 
-This variable is baked into the static bundle at build time (`NEXT_PUBLIC_*` prefix). After changing it, trigger a redeploy.
+`next.config.ts` bakes this into the `/api/*` rewrite at **build** time and
+**fails the build outright** if it is missing — there is deliberately no
+production fallback, so that a local `npm run dev` cannot silently proxy to the
+live backend. Preview deployments are production builds too, so a value scoped
+only to Production makes every pull-request build fail. After changing it,
+trigger a redeploy; a running deployment will not pick up the new value.
+
+> `NEXT_PUBLIC_API_URL` was the old variable and is dead — nothing in `src/`
+> reads it (`api.ts` uses relative URLs and lets the rewrite do the routing).
+> It can be removed from the Vercel project.
 
 ### Domain
 
@@ -102,7 +112,7 @@ The project is served at `trakspend.vercel.app`. The backend CORS and Sanctum co
 - [ ] `LOG_LEVEL=error` on Render
 - [ ] `CORS_ALLOWED_ORIGINS` matches Vercel URL exactly
 - [ ] `DATABASE_URL` DSN includes `?sslmode=require`
-- [ ] `NEXT_PUBLIC_API_URL` set in Vercel environment
+- [ ] `BACKEND_URL` set in Vercel environment, for **both** Production and Preview
 - [ ] Render health check path set to `/api/health`
 - [ ] No `test@example.com` account exists in production DB
 

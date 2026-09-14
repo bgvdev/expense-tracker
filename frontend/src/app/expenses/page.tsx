@@ -15,7 +15,6 @@ import SummaryCard from "@/components/ui/SummaryCard";
 import Pagination from "@/components/ui/Pagination";
 import ExpenseList from "@/components/ExpenseList";
 import ExpenseForm from "@/components/ExpenseForm";
-import EditExpenseModal from "@/components/EditExpenseModal";
 import ExpenseFilters from "@/components/ExpenseFilters";
 import AppShell from "@/components/layout/AppShell";
 import RequireAuth from "@/components/layout/RequireAuth";
@@ -112,7 +111,7 @@ function ExpensesContent() {
       {/* Add Expense Modal */}
       <Modal open={addExpenseOpen} onClose={() => setAddExpenseOpen(false)} title="New Expense">
         <ExpenseForm
-          onAdd={async (data) => { await addExpense(data); await fetchSummary(); setAddExpenseOpen(false); showToast("Expense added!"); }}
+          onSubmit={async (data) => { await addExpense(data); await fetchSummary(); setAddExpenseOpen(false); showToast("Expense added!"); }}
           categories={categories}
           catLoading={catLoading}
           paymentMethods={paymentMethods}
@@ -121,14 +120,21 @@ function ExpensesContent() {
 
       {/* Edit Expense Modal */}
       {editingExpense && (
-        <EditExpenseModal
-          expense={editingExpense}
-          onSave={async (id, data) => { await updateExpense(id, data); await fetchSummary(); showToast("Expense updated!"); }}
-          onClose={() => setEditingExpense(null)}
-          categories={categories}
-          catLoading={catLoading}
-          paymentMethods={paymentMethods}
-        />
+        <Modal open onClose={() => setEditingExpense(null)} title="Edit Expense">
+          <ExpenseForm
+            expense={editingExpense}
+            onSubmit={async (data) => {
+              await updateExpense(editingExpense.id, data);
+              await fetchSummary();
+              setEditingExpense(null);
+              showToast("Expense updated!");
+            }}
+            onCancel={() => setEditingExpense(null)}
+            categories={categories}
+            catLoading={catLoading}
+            paymentMethods={paymentMethods}
+          />
+        </Modal>
       )}
 
       <div className="p-4 md:p-8 max-w-5xl mx-auto">

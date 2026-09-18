@@ -12,9 +12,9 @@
 | Service | URL | Dashboard |
 |---------|-----|-----------|
 | Frontend | https://trakspend.vercel.app | https://vercel.com |
-| Backend API | https://expense-tracker-funw.onrender.com | https://dashboard.render.com |
+| Backend API | https://expense-tracker-singapore.onrender.com | https://dashboard.render.com |
 | Database | Neon | https://console.neon.tech |
-| Health check | https://expense-tracker-funw.onrender.com/api/health | — |
+| Health check | https://expense-tracker-singapore.onrender.com/api/health | — |
 
 ---
 
@@ -22,7 +22,7 @@
 
 **Check:**
 1. Open browser DevTools → Console — look for fetch errors.
-2. Check if the API is reachable: `curl https://expense-tracker-funw.onrender.com/api/health`
+2. Check if the API is reachable: `curl https://expense-tracker-singapore.onrender.com/api/health`
 3. Check Vercel deployment logs: Vercel Dashboard → Project → Deployments → latest → Build Logs.
 
 **Common causes:**
@@ -45,7 +45,7 @@ git push origin main
 ## Symptom: API returns 500 or is unreachable
 
 **Check:**
-1. `curl -i https://expense-tracker-funw.onrender.com/api/health`
+1. `curl -i https://expense-tracker-singapore.onrender.com/api/health`
    - `200 {"status":"ok","database":"ok"}` — app and database are both fine.
    - `503 {"status":"error","database":"unavailable"}` — app is up, database is not.
      Go straight to Neon (check the project isn't suspended, and that

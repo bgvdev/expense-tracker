@@ -178,7 +178,7 @@ cd frontend
 # outright if it is missing, rather than defaulting to the production backend.
 docker build \
   --target production \
-  --build-arg BACKEND_URL=https://expense-tracker-funw.onrender.com \
+  --build-arg BACKEND_URL=https://expense-tracker-singapore.onrender.com \
   -t expense-tracker-web:prod .
 
 docker run -p 3000:3000 expense-tracker-web:prod

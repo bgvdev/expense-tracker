@@ -5,7 +5,7 @@
 | Service | Platform | URL |
 |---------|----------|-----|
 | Frontend | Vercel | https://trakspend.vercel.app |
-| Backend API | Render | https://expense-tracker-funw.onrender.com |
+| Backend API | Render | https://expense-tracker-singapore.onrender.com |
 | Database | Neon (PostgreSQL 15) | Internal DSN |
 
 ---
@@ -23,7 +23,7 @@ Set these in the Render dashboard under **Environment → Environment Variables*
 APP_ENV=production
 APP_KEY=<generate with: php artisan key:generate --show>
 APP_DEBUG=false
-APP_URL=https://expense-tracker-funw.onrender.com
+APP_URL=https://expense-tracker-singapore.onrender.com
 
 # Database (copy from Neon dashboard)
 DB_CONNECTION=pgsql
@@ -84,7 +84,7 @@ Set in Vercel dashboard → Project → Settings → Environment Variables, for
 **both Production and Preview**:
 
 ```dotenv
-BACKEND_URL=https://expense-tracker-funw.onrender.com
+BACKEND_URL=https://expense-tracker-singapore.onrender.com
 ```
 
 `next.config.ts` bakes this into the `/api/*` rewrite at **build** time and

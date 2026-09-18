@@ -64,7 +64,7 @@ default 120/min), keyed by authenticated user and falling back to IP. The public
 | PATCH | `/api/admin/categories/{id}` | Sanctum + `admin` |
 | DELETE | `/api/admin/categories/{id}` | Sanctum + `admin` |
 
-Categories returns each row with an `is_global` flag (`true` for the shared defaults with `user_id = null`, `false` for the user's own). `store`/`update`/`destroy` act only on the authenticated user's own categories; `destroy` is blocked (422) while expenses reference the category. Note `category.slug` has a **global** unique index, so new slugs must be deduped against every row — use `Category::uniqueSlug()`, never a user-scoped check.
+Categories returns each row with an `is_global` flag (`true` for the shared defaults with `user_id = null`, `false` for the user's own). `store`/`update`/`destroy` act only on the authenticated user's own categories; `destroy` is blocked (422) while expenses reference the category. A category is identified only by its `id`; ownership is carried entirely by `user_id` (null = global), and names are free to repeat across users, so nothing needs deduping on insert. The table previously also had a globally-unique `slug`, dropped in `2026_09_19_000001_drop_slug_from_category_table.php` — do not reintroduce one.
 
 Expenses are always returned wrapped in `{ data: [...] }` via `ExpenseResource`, with nested category and ISO 8601 dates.
 

@@ -101,7 +101,6 @@ export interface AdminUser {
 export interface AdminCategory {
   id: number;
   name: string;
-  slug: string;
   icon: string;
   color: string;
   expense_count: number;

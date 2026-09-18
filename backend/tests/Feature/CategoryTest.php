@@ -59,20 +59,23 @@ class CategoryTest extends TestCase
         $this->assertDatabaseHas('category', [
             'name'    => 'Travel',
             'user_id' => $user->id,
-            'slug'    => 'travel',
         ]);
     }
 
-    public function test_store_generates_unique_slug_per_user(): void
+    public function test_store_allows_a_name_another_user_already_uses(): void
     {
+        $other = User::factory()->create();
+        Category::factory()->forUser($other)->create(['name' => 'Travel']);
+
         $user = User::factory()->create();
-        Category::factory()->forUser($user)->create(['name' => 'Travel', 'slug' => 'travel']);
 
         $this->actingAs($user)->postJson('/api/categories', [
             'name'  => 'Travel',
             'icon'  => 'flight',
             'color' => '#1A2B3C',
-        ])->assertCreated()->assertJsonPath('slug', 'travel-1');
+        ])->assertCreated()->assertJsonPath('name', 'Travel');
+
+        $this->assertDatabaseCount('category', 2);
     }
 
     public function test_store_validates_color_format(): void

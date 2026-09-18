@@ -106,7 +106,6 @@ class AdminController
             ->map(fn ($cat) => [
                 'id'            => $cat->id,
                 'name'          => $cat->name,
-                'slug'          => $cat->slug,
                 'icon'          => $cat->icon,
                 'color'         => $cat->color,
                 'expense_count' => $cat->expenses_count,
@@ -121,7 +120,6 @@ class AdminController
         $category = Category::create([
             'user_id' => null,
             'name'    => $request->name,
-            'slug'    => Category::uniqueSlug($request->name),
             'icon'    => $request->icon,
             'color'   => $request->color,
         ]);

@@ -12,12 +12,12 @@
 # they are intentionally not committed here.
 services:
   - type: web
-    name: expense-tracker-api
+    name: expense-tracker-singapore
     runtime: docker
     rootDir: backend
     dockerfilePath: ./Dockerfile
     plan: free
-    region: oregon
+    region: singapore
     healthCheckPath: /api/health
     autoDeploy: true            # deploy on every push to main
     envVars:

@@ -5,7 +5,7 @@
 ### Backend health endpoint
 
 ```
-GET https://expense-tracker-funw.onrender.com/api/health
+GET https://expense-tracker-singapore.onrender.com/api/health
 ```
 
 Expected response:
@@ -73,7 +73,7 @@ Since the Render free tier sleeps after inactivity, set up a monitor that pings 
 
 **UptimeRobot (free):**
 1. Create account at https://uptimerobot.com
-2. Add HTTP monitor: `https://expense-tracker-funw.onrender.com/api/health`
+2. Add HTTP monitor: `https://expense-tracker-singapore.onrender.com/api/health`
 3. Set interval: 5 minutes
 4. Add alert email: `gohelbhargav442@gmail.com`
 

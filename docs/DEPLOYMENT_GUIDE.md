@@ -7,7 +7,7 @@ trakspend.vercel.app (Vercel)
     └─ Next.js 15 SPA
          │ HTTPS + Bearer token
          ▼
-expense-tracker-funw.onrender.com (Render)
+expense-tracker-singapore.onrender.com (Render)
     └─ Nginx → PHP-FPM → Laravel 11
          │ pgsql+ssl
          ▼
@@ -87,7 +87,7 @@ pg_dump "$DATABASE_URL" > backup_$(date +%Y%m%d).sql
 1. Import the repo in the Vercel dashboard.
 2. Set **Root Directory** to `frontend`.
 3. Vercel auto-detects Next.js — no build command override needed.
-4. Add environment variable: `NEXT_PUBLIC_API_URL=https://expense-tracker-funw.onrender.com`.
+4. Add environment variable: `NEXT_PUBLIC_API_URL=https://expense-tracker-singapore.onrender.com`.
 
 ### Deploy Flow
 

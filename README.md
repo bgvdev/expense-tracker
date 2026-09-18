@@ -66,7 +66,7 @@ unset, rather than silently proxying to the live backend.
 ## Deployment
 
 - **Frontend** → [Vercel](https://trakspend.vercel.app)
-- **Backend API** → [Render](https://expense-tracker-funw.onrender.com)
+- **Backend API** → [Render](https://expense-tracker-singapore.onrender.com)
 - **Database** → [Neon](https://neon.tech) (PostgreSQL 15)
 
 See [docs/DEPLOYMENT_GUIDE.md](docs/DEPLOYMENT_GUIDE.md) for full setup instructions.

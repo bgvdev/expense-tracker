@@ -19,6 +19,8 @@ out/
 # Database dumps — BACKUP_AND_RECOVERY.md warns against committing these
 *.sql
 *.sql.gz
+# ...but the Postgres init scripts are source, not dumps.
+!docker/postgres/init/*.sql
 *.dump
 
 # Environment

@@ -21,7 +21,6 @@ class CategoryFactory extends Factory
             // Global by default; call ->forUser($user) for a user-scoped category.
             'user_id' => null,
             'name'    => Str::title($name),
-            'slug'    => Str::slug($name).'-'.Str::random(4),
             'icon'    => $this->faker->randomElement(['fastfood', 'home', 'movie', 'shopping_cart']),
             'color'   => $this->faker->hexColor(),
         ];

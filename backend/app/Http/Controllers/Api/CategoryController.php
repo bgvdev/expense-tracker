@@ -29,7 +29,6 @@ class CategoryController extends Controller
         $category = Category::create([
             'user_id' => auth()->id(),
             'name'    => $request->name,
-            'slug'    => Category::uniqueSlug($request->name),
             'icon'    => $request->icon,
             'color'   => $request->color,
         ]);

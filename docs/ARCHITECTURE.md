@@ -95,8 +95,8 @@ user
 
 category
 ├── id (bigserial PK)
+├── user_id (FK → user.id, nullable — null = shared global category)
 ├── name (varchar)
-├── slug (varchar, unique)
 ├── icon (varchar)  — Material Symbols name
 ├── color (varchar) — hex color
 ├── created_at

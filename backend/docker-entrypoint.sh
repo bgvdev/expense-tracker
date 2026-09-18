@@ -46,8 +46,8 @@ migrated=0
 for i in $(seq 1 10); do
     if DATABASE_URL="${MIGRATE_DB_URL}" php artisan migrate --force; then
         # Reference data: the default categories must exist in every environment.
-        # CategorySeeder is idempotent (firstOrCreate on slug), so this is safe to
-        # re-run on every deploy.
+        # CategorySeeder is idempotent (firstOrCreate on name + null user_id), so
+        # this is safe to re-run on every deploy.
         php artisan db:seed --class=CategorySeeder --force
         php artisan db:seed --class=PaymentMethodSeeder --force
 

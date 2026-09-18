@@ -12,6 +12,9 @@ services:
       - "${DB_HOST_PORT:-15432}:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
+      # Creates the separate <DB_DATABASE>_test database the test suite uses.
+      # Only runs when the volume is first created — see the script's header.
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
     networks:
       - expense_net
     healthcheck:

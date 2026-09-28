@@ -2,7 +2,15 @@
 
 import { useState } from "react";
 import type { Expense } from "@/lib/types";
-import EmptyState from "@/components/EmptyState";
+import { formatCurrency, formatDate } from "@/lib/format";
+import EmptyState from "@/components/ui/EmptyState";
+import Button, { IconButton } from "@/components/ui/Button";
+import Badge from "@/components/ui/Badge";
+import CategoryIcon from "@/components/ui/CategoryIcon";
+import ConfirmDialog, { ConfirmPreview } from "@/components/ui/ConfirmDialog";
+import Skeleton from "@/components/ui/Skeleton";
+import { Table, THead, TH, THSort, TBody, TR, TD, TActions } from "@/components/ui/Table";
+import type { SortKey, SortDir } from "@/lib/expenseQuery";
 
 interface Props {
   expenses: Expense[];
@@ -11,257 +19,195 @@ interface Props {
   onEdit: (expense: Expense) => void;
   onDelete: (id: number) => Promise<void>;
   onClearFilters?: () => void;
+  /**
+   * For narrow containers (the dashboard's side-by-side card): never show the
+   * Date / Category / Payment columns, whatever the viewport width.
+   */
+  compact?: boolean;
+  /**
+   * Sorting state. Pass `onSort` to make the column headers clickable; without
+   * it the headers are plain text (the dashboard shows a fixed recent list).
+   */
+  sortKey?: SortKey;
+  sortDir?: SortDir;
+  onSort?: (key: SortKey) => void;
 }
 
-function SkeletonRow() {
+/** Visibility of a secondary column: from a breakpoint, or never when compact. */
+function col(compact: boolean, from: "lg" | "xl") {
+  return compact ? { hide: true } : { showFrom: from };
+}
+
+function SkeletonRow({ compact }: { compact: boolean }) {
   return (
-    <div className="flex items-center gap-4 p-4 rounded-xl bg-white/5 border border-white/10 animate-pulse">
-      <div className="h-10 w-10 rounded-full bg-white/10 shrink-0" />
-      <div className="flex-1 space-y-2">
-        <div className="h-3 bg-white/10 rounded w-1/3" />
-        <div className="h-2.5 bg-white/5 rounded w-1/5" />
-      </div>
-      <div className="h-4 bg-white/10 rounded w-16" />
-    </div>
+    <tr>
+      <TD {...col(compact, "lg")}><Skeleton className="h-3 w-20" /></TD>
+      <TD>
+        <div className="flex items-center gap-3">
+          <Skeleton className={compact ? "h-9 w-9 rounded-lg" : "h-9 w-9 rounded-lg lg:hidden"} />
+          <div className="flex-1 space-y-2">
+            <Skeleton className="h-3 w-2/3" />
+            <Skeleton className={compact ? "h-2.5 w-1/3" : "h-2.5 w-1/3 lg:hidden"} />
+          </div>
+        </div>
+      </TD>
+      <TD {...col(compact, "lg")}>
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-6 w-6 rounded-md" />
+          <Skeleton className="h-3 w-20" />
+        </div>
+      </TD>
+      <TD {...col(compact, "xl")}><Skeleton className="h-3 w-14" /></TD>
+      <TD align="right"><Skeleton className="ml-auto h-3 w-16" /></TD>
+      <TD />
+    </tr>
   );
 }
 
-function CategoryBadge({ name, icon, color }: { name: string; icon: string; color: string }) {
+type SortProps = Pick<Props, "sortKey" | "sortDir" | "onSort">;
+
+const COLUMNS: { key: SortKey; label: string; align?: "right"; vis: (c: boolean) => object }[] = [
+  // The sidebar takes 240px from md up, so secondary columns wait for lg / xl.
+  { key: "date",        label: "Date",        vis: (c) => col(c, "lg") },
+  { key: "description", label: "Description", vis: () => ({}) },
+  { key: "category",    label: "Category",    vis: (c) => col(c, "lg") },
+  { key: "payment",     label: "Payment",     vis: (c) => col(c, "xl") },
+  { key: "amount",      label: "Amount",      align: "right", vis: () => ({}) },
+];
+
+function Header({ compact, sortKey, sortDir, onSort }: { compact: boolean } & SortProps) {
   return (
-    <span
-      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold"
-      style={{ backgroundColor: `${color}22`, color }}
-    >
-      <span className="material-symbols-rounded" style={{ fontSize: 13 }}>{icon}</span>
-      <span className="hidden sm:inline">{name}</span>
-    </span>
+    <THead>
+      {COLUMNS.map(({ key, label, align, vis }) =>
+        onSort ? (
+          <THSort
+            key={key}
+            {...vis(compact)}
+            align={align}
+            active={sortKey === key}
+            dir={sortKey === key ? (sortDir ?? "desc") : "desc"}
+            onSort={() => onSort(key)}
+          >
+            {label}
+          </THSort>
+        ) : (
+          <TH key={key} {...vis(compact)} align={align}>{label}</TH>
+        )
+      )}
+      <TH align="right"><span className="sr-only">Actions</span></TH>
+    </THead>
   );
 }
 
-function PaymentMethodBadge({ name }: { name: string }) {
-  return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-white/8 text-white/50 border border-white/10">
-      <span className="material-symbols-rounded" style={{ fontSize: 12 }}>credit_card</span>
-      <span className="hidden sm:inline">{name}</span>
-    </span>
-  );
-}
-
-interface RowActionsProps {
-  expense: Expense;
-  isConfirming: boolean;
-  isDeleting: boolean;
-  onEdit: (expense: Expense) => void;
-  onConfirm: () => void;
-  onCancelConfirm: () => void;
-  onDelete: () => void;
-}
-
-function RowActions({ expense, isConfirming, isDeleting, onEdit, onConfirm, onCancelConfirm, onDelete }: RowActionsProps) {
-  if (isConfirming) {
-    return (
-      <div className="flex items-center gap-1 ml-1">
-        <span className="text-xs text-white/50 hidden sm:inline">Delete?</span>
-        <button
-          onClick={onDelete}
-          disabled={isDeleting}
-          className="px-2 py-1 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400
-                     text-xs font-semibold transition-colors disabled:opacity-50"
-        >
-          {isDeleting ? "…" : "Yes"}
-        </button>
-        <button
-          onClick={onCancelConfirm}
-          disabled={isDeleting}
-          className="px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-white/50
-                     text-xs font-semibold transition-colors"
-        >
-          No
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex items-center gap-0.5 ml-1 rounded-lg bg-white/5 border border-white/10 p-0.5 shrink-0">
-      <button
-        onClick={() => onEdit(expense)}
-        title="Edit expense"
-        aria-label="Edit expense"
-        className="h-7 w-7 sm:h-8 sm:w-8 rounded-md text-white/55 hover:bg-indigo-500/20 hover:text-indigo-300
-                   flex items-center justify-center transition-colors"
-      >
-        <span className="material-symbols-rounded" style={{ fontSize: 15 }}>edit</span>
-      </button>
-      <span className="w-px h-4 bg-white/10" />
-      <button
-        onClick={onConfirm}
-        title="Delete expense"
-        aria-label="Delete expense"
-        className="h-7 w-7 sm:h-8 sm:w-8 rounded-md text-white/55 hover:bg-red-500/20 hover:text-red-400
-                   flex items-center justify-center transition-colors"
-      >
-        <span className="material-symbols-rounded" style={{ fontSize: 15 }}>delete</span>
-      </button>
-    </div>
-  );
-}
-
-export default function ExpenseList({ expenses, totalCount, loading, onEdit, onDelete, onClearFilters }: Props) {
-  const [deletingId, setDeletingId] = useState<number | null>(null);
-  const [confirmId, setConfirmId]   = useState<number | null>(null);
-
-  async function handleDelete(id: number) {
-    setDeletingId(id);
-    try {
-      await onDelete(id);
-    } finally {
-      setDeletingId(null);
-      setConfirmId(null);
-    }
-  }
+/**
+ * One table for every width. Narrow screens drop the Date / Category /
+ * Payment columns and show that information under the description instead,
+ * so there is a single copy of each row to maintain.
+ */
+export default function ExpenseList({ expenses, totalCount, loading, onEdit, onDelete, onClearFilters, compact = false, sortKey, sortDir, onSort }: Props) {
+  const sortProps: SortProps = { sortKey, sortDir, onSort };
+  // The expense awaiting confirmation; the dialog owns the busy/error state.
+  const [pendingDelete, setPendingDelete] = useState<Expense | null>(null);
 
   if (loading) {
     return (
-      <div className="space-y-3">
-        {Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} />)}
-      </div>
+      <Table>
+        <Header compact={compact} {...sortProps} />
+        <TBody>{Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} compact={compact} />)}</TBody>
+      </Table>
     );
   }
 
   if (expenses.length === 0) {
-    return totalCount === 0
-      ? <EmptyState type="no-expenses" />
-      : <EmptyState type="no-results" onClearFilters={onClearFilters} />;
+    return totalCount === 0 ? (
+      <EmptyState icon="receipt_long" title="No expenses yet" description="Add your first expense to start tracking." />
+    ) : (
+      <EmptyState
+        icon="search_off"
+        title="No results match your filters"
+        description="Try adjusting or clearing your filters."
+        action={onClearFilters && <Button size="sm" onClick={onClearFilters}>Clear filters</Button>}
+      />
+    );
   }
 
   return (
     <>
-      {/* ── Table layout (sm and up) ── */}
-      <div className="hidden sm:block overflow-x-auto rounded-xl border border-white/10">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-white/10 text-left text-xs text-white/40 uppercase tracking-wide">
-              <th className="px-4 py-3 font-semibold">Date</th>
-              <th className="px-4 py-3 font-semibold">Description / Category / Payment</th>
-              <th className="px-4 py-3 font-semibold text-right">Amount</th>
-              <th className="px-4 py-3 font-semibold text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {expenses.map((expense) => {
-              const date = new Date(expense.spent_at);
-              const formatted = date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-              const isConfirming = confirmId === expense.id;
-              const isDeleting   = deletingId === expense.id;
+    <ConfirmDialog
+      open={pendingDelete !== null}
+      onClose={() => setPendingDelete(null)}
+      onConfirm={async () => { if (pendingDelete) await onDelete(pendingDelete.id); }}
+      title="Delete this expense?"
+      description="This permanently removes the expense. It can't be undone."
+    >
+      {pendingDelete && (
+        <ConfirmPreview
+          leading={<CategoryIcon icon={pendingDelete.category.icon} color={pendingDelete.category.color} />}
+          title={pendingDelete.description ?? pendingDelete.category.name}
+          subtitle={`${pendingDelete.category.name} · ${formatDate(pendingDelete.spent_at)}`}
+          trailing={<span className="text-sm font-semibold tabular-nums text-foreground">{formatCurrency(pendingDelete.amount)}</span>}
+        />
+      )}
+    </ConfirmDialog>
 
-              return (
-                <tr
-                  key={expense.id}
-                  className="group border-b border-white/5 last:border-b-0 hover:bg-white/5 transition-colors"
-                >
-                  <td className="px-4 py-3 whitespace-nowrap text-white/50">{formatted}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-white/90 font-medium">{expense.description ?? "—"}</span>
-                      <CategoryBadge
-                        name={expense.category.name}
-                        icon={expense.category.icon}
-                        color={expense.category.color}
-                      />
-                      {expense.payment_method && (
-                        <PaymentMethodBadge name={expense.payment_method.name} />
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-right whitespace-nowrap font-bold text-emerald-400">
-                    ₹{Number(expense.amount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                  </td>
-                  <td className="px-4 py-3 text-right whitespace-nowrap">
-                    <div className="flex justify-end">
-                      <RowActions
-                        expense={expense}
-                        isConfirming={isConfirming}
-                        isDeleting={isDeleting}
-                        onEdit={onEdit}
-                        onConfirm={() => setConfirmId(expense.id)}
-                        onCancelConfirm={() => setConfirmId(null)}
-                        onDelete={() => handleDelete(expense.id)}
-                      />
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-
-      {/* ── Card layout (mobile only) ── */}
-      <ul className="sm:hidden space-y-3">
-        {expenses.map((expense) => {
-          const date = new Date(expense.spent_at);
-          const formatted = date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-          const isConfirming = confirmId === expense.id;
-          const isDeleting   = deletingId === expense.id;
-
-          return (
-            <li
-              key={expense.id}
-              className="group flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/10
-                         hover:bg-white/10 hover:border-white/20 transition-all duration-200"
-            >
-              {/* Category icon circle */}
-              <div
-                className="h-9 w-9 rounded-full flex items-center justify-center shrink-0"
-                style={{ backgroundColor: `${expense.category.color}33` }}
-              >
-                <span
-                  className="material-symbols-rounded"
-                  style={{ color: expense.category.color, fontSize: 18 }}
-                >
-                  {expense.category.icon}
-                </span>
-              </div>
-
-              {/* Description + category */}
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-white/90 truncate max-w-[120px]">
-                  {expense.description ?? "—"}
-                </p>
-                <div className="mt-1 flex items-center gap-1.5 flex-wrap">
-                  <CategoryBadge
-                    name={expense.category.name}
-                    icon={expense.category.icon}
-                    color={expense.category.color}
-                  />
-                  {expense.payment_method && (
-                    <PaymentMethodBadge name={expense.payment_method.name} />
+    <Table>
+      <Header compact={compact} {...sortProps} />
+      <TBody>
+        {expenses.map((expense) => (
+          <TR key={expense.id}>
+            <TD {...col(compact, "lg")} className="whitespace-nowrap tabular-nums text-muted">
+              {formatDate(expense.spent_at)}
+            </TD>
+            <TD className="max-w-0 w-full">
+              <div className="flex min-w-0 items-center gap-3">
+                {/* Only where the Category column is hidden — otherwise the icon shows there. */}
+                <CategoryIcon
+                  icon={expense.category.icon}
+                  color={expense.category.color}
+                  className={compact ? undefined : "lg:hidden"}
+                />
+                <div className="min-w-0">
+                  {/* No description means an empty cell, not the category name again. */}
+                  {expense.description && (
+                    <p className="truncate font-medium text-foreground">{expense.description}</p>
                   )}
-                  <span className="text-xs text-white/30">{formatted}</span>
+                  {/* Columns hidden at this width, folded into one line. The category
+                      belongs here too now, since the line above may be absent. */}
+                  <p className={compact ? "truncate text-xs text-muted" : "truncate text-xs text-muted lg:hidden"}>
+                    {[
+                      expense.category.name,
+                      formatDate(expense.spent_at),
+                      expense.payment_method?.name,
+                    ].filter(Boolean).join(" · ")}
+                  </p>
+                  {!compact && (
+                    <p className="hidden truncate text-xs text-muted lg:block xl:hidden">
+                      {expense.payment_method?.name}
+                    </p>
+                  )}
                 </div>
               </div>
-
-              {/* Amount + actions */}
-              <div className="flex items-center gap-1.5 shrink-0">
-                <span className="text-sm font-bold text-emerald-400">
-                  ₹{Number(expense.amount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                </span>
-
-                <RowActions
-                  expense={expense}
-                  isConfirming={isConfirming}
-                  isDeleting={isDeleting}
-                  onEdit={onEdit}
-                  onConfirm={() => setConfirmId(expense.id)}
-                  onCancelConfirm={() => setConfirmId(null)}
-                  onDelete={() => handleDelete(expense.id)}
-                />
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+            </TD>
+            <TD {...col(compact, "lg")} className="whitespace-nowrap text-muted">
+              <span className="inline-flex items-center gap-2">
+                <CategoryIcon icon={expense.category.icon} color={expense.category.color} size="sm" />
+                {expense.category.name}
+              </span>
+            </TD>
+            <TD {...col(compact, "xl")} className="whitespace-nowrap">
+              {expense.payment_method ? <Badge>{expense.payment_method.name}</Badge> : <span className="text-faint">—</span>}
+            </TD>
+            <TD align="right" className="whitespace-nowrap font-semibold tabular-nums text-foreground">
+              {formatCurrency(expense.amount)}
+            </TD>
+            <TActions>
+              <IconButton icon="edit" label="Edit expense" size="sm" onClick={() => onEdit(expense)} />
+              <IconButton icon="delete" label="Delete expense" size="sm" tone="danger" onClick={() => setPendingDelete(expense)} />
+            </TActions>
+          </TR>
+        ))}
+      </TBody>
+    </Table>
     </>
   );
 }

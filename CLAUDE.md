@@ -52,6 +52,7 @@ default 120/min), keyed by authenticated user and falling back to IP. The public
 | GET | `/api/payment-methods` | Sanctum (read-only reference data) |
 | GET | `/api/expenses` | Sanctum |
 | GET | `/api/expenses/summary` | Sanctum — `{ this_month: number }` |
+| GET | `/api/expenses/stats` | Sanctum — aggregates over the filtered set (see below) |
 | POST | `/api/expenses` | Sanctum |
 | PATCH | `/api/expenses/{id}` | Sanctum |
 | DELETE | `/api/expenses/{id}` | Sanctum |
@@ -68,6 +69,10 @@ Categories returns each row with an `is_global` flag (`true` for the shared defa
 
 Expenses are always returned wrapped in `{ data: [...] }` via `ExpenseResource`, with nested category and ISO 8601 dates.
 
+**Filtering, sorting and aggregation are server-side.** `GET /api/expenses` and `GET /api/expenses/stats` share one set of query filters, validated and applied by `ExpenseFilterRequest`: `search` (case-insensitive on description, LIKE wildcards escaped), `category_ids[]`, `payment_method_ids[]`, `date_from`/`date_to` (inclusive `Y-m-d` calendar dates), `amount_min`/`amount_max`. The list also takes `sort` (`date|description|category|payment|amount`), `dir`, `page`, `per_page`; every sort breaks ties newest-first so pages never overlap. Malformed values are a 422, never silently ignored. Either end of a range may be sent alone — cross-field rules only apply when both ends are present, since `gte:amount_min` otherwise rejects a lone `amount_max`.
+
+The list's `meta` adds `total_amount` (sum over **every** matching row, not the page) and `user_total` (the user's unfiltered count, so the UI can tell "no expenses yet" from "nothing matches"). `stats` returns `count`, `total`, `first_date`/`last_date`, `highest`, `most_used_category`, `by_category`, `by_payment_method` (no-method bucket last), and `daily`/`monthly` series containing **only buckets with spending** — the client fills gaps, because which gaps to show is presentation. Buckets use `spent_at`'s stored calendar date: the form submits a plain `Y-m-d`, stored as midnight UTC, so no timezone conversion applies.
+
 ### Admin
 
 The `admin` middleware alias (`AdminMiddleware`, registered in `bootstrap/app.php`) gates the `/api/admin/*` group on `user.is_admin`. `is_admin` is a boolean column on `user` and is returned by `login`, `register`, `me` **and** `PATCH /auth/profile` — every endpoint returning a user must include it, because the frontend replaces its whole user object with the response. The admin routes operate on **global** categories (`user_id = null`) only.
@@ -82,12 +87,15 @@ Tokens expire (`SANCTUM_TOKEN_EXPIRATION`, default 7 days). `PATCH /auth/passwor
 src/
   app/           # Next.js App Router pages: login, register, dashboard, settings
   components/    # feature components (ExpenseForm/List/Filters, Category*, Toast, …)
-  components/ui/ # reusable primitives: Modal, ColorPicker, IconPicker, PasswordInput
-  hooks/         # useAuth, useAllExpenses, useCategories, useFilteredExpenses, useToast
-  lib/           # api.ts (fetch wrapper), types.ts (shared interfaces), utils.ts
+  components/ui/ # design-system primitives: Button, Input, Field, Card, SidePanel, Select, Chip, …
+  components/layout/ # AppShell, Page, AuthCard, RequireAuth
+  hooks/         # useAuth, useExpenses, useExpenseStats, useReportsData, useCategories, useToast
+  lib/           # api.ts (fetch wrapper), expenseQuery.ts (filters → query params), types.ts, utils.ts
 ```
 
-`AuthProvider` wraps the entire app in `layout.tsx`; all pages that need auth check `useAuth()`. State hooks are standalone and own one API resource each: `useAllExpenses` (fetch/add/update/remove; the single source of expense state for the dashboard, expenses, categories and reports pages), `useCategories` (CRUD over the user's own categories), `useFilteredExpenses` (client-side filtering over the dashboard list). `useToast` provides the app-wide toast notifications. Shared `ui/` primitives back the modals and the category color/icon pickers.
+**Theming.** Light/dark is driven by semantic tokens (`background`, `surface`, `subtle`, `border`, `foreground`, `muted`, `faint`, `primary`, `accent`, `danger`, `success`, `warning`) defined as RGB channels in `globals.css` and mapped in `tailwind.config.ts` (`darkMode: "class"`). `ThemeProvider` (`hooks/useTheme.tsx`) stores light/dark/system in `localStorage` and an inline script in `layout.tsx` applies the `dark` class before first paint. Never use raw palette classes (`white/…`, `indigo-…`, hex) in markup — use the tokens and the shared `components/ui/` primitives (Button, Input, Field, Card, Select, Chip, Badge, Alert, StatCard, PageHeader, …). Only data-driven category colors go in inline styles.
+
+`AuthProvider` wraps the entire app in `layout.tsx`; all pages that need auth check `useAuth()`. State hooks are standalone and own one API resource each: `useExpenses` (one API page for a filter + sort + page; stale responses are dropped, and `refetch()` reloads in place), `useExpenseMutations` (create/update/delete — they hold no list state, so callers `refetch()` after a write), `useExpenseStats` (the `/stats` aggregates, behind the reports, dashboard and categories pages), `useCategories` (CRUD over the user's own categories). `lib/expenseQuery.ts` owns `FilterState` and turns it into query params; it never filters a list itself. On `/expenses` the side-panel filters are a draft sent only on **Apply**, search is sent on Enter or its arrow button, and removing an applied chip or clicking a column header applies at once. The page opens on the current month (`DEFAULT_FILTERS`); "Clear all" returns to `EMPTY_FILTERS` (all time). `useToast` provides the app-wide toast notifications. Add/edit forms and the expense filters open in a right-hand `SidePanel` (full-width on phones), not a centered modal. Every delete goes through `ConfirmDialog`, which runs the action, stays open showing the API error if it fails, and closes on success; shared `ui/` primitives also back the category color/icon pickers.
 
 ## Seeding
 
@@ -136,12 +144,13 @@ deliberate — check here before changing them:
   `extract(... from spent_at) = ?` on Postgres, which cannot use
   `expense_user_id_spent_at_index`. Use a half-open range instead — see
   `ExpenseController::summary()`.
-- **The frontend loads the full expense list once per page** (`useAllExpenses`)
-  and filters client-side. Page 1 is fetched first for its `meta.last_page`,
-  then the remaining pages go out **concurrently** — do not turn that back into
-  a sequential loop. Mutations reconcile the local list from the response body
-  rather than re-sweeping every page, and the dashboard derives its "Recent
-  Expenses" from that same list instead of issuing a second paginated request.
+- **No screen downloads the full expense list.** Each fetches one page of
+  `/api/expenses` and/or the `/api/expenses/stats` aggregates, so request cost
+  stays flat as a user's history grows. The one exception is CSV export
+  (`fetchAllMatching`), which fetches page 1 for its `meta.last_page` and then
+  the remaining pages **concurrently** — do not turn that into a sequential
+  loop. Filters are sent on an explicit Apply, not per keystroke, so each
+  change costs one round trip.
 - **`recharts` is loaded with `next/dynamic`** on `/reports` only; it is ~120 kB
   and used nowhere else. Payment methods are cached at module scope in
   `usePaymentMethods` since they are read-only reference data.

@@ -3,12 +3,24 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useCategories } from "@/hooks/useCategories";
-import { useAllExpenses } from "@/hooks/useAllExpenses";
+import { useExpenseStats } from "@/hooks/useExpenseStats";
 import { useToast } from "@/hooks/useToast";
-import CategoryModal from "@/components/CategoryModal";
+import CategoryPanel from "@/components/CategoryPanel";
 import AppShell from "@/components/layout/AppShell";
 import RequireAuth from "@/components/layout/RequireAuth";
 import type { Category, NewCategory } from "@/lib/types";
+import Page from "@/components/layout/Page";
+import PageHeader from "@/components/ui/PageHeader";
+import Button from "@/components/ui/Button";
+import Alert from "@/components/ui/Alert";
+import Badge from "@/components/ui/Badge";
+import CategoryIcon from "@/components/ui/CategoryIcon";
+import ConfirmDialog, { ConfirmPreview } from "@/components/ui/ConfirmDialog";
+import EmptyState from "@/components/ui/EmptyState";
+import { Card, CardHeader } from "@/components/ui/Card";
+import CategoryTable from "@/components/CategoryTable";
+import { LoadingState } from "@/components/ui/Spinner";
+import { plural } from "@/lib/format";
 
 export default function CategoriesPage() {
   return (
@@ -23,27 +35,23 @@ export default function CategoriesPage() {
 function CategoriesContent() {
   const { user } = useAuth();
   const { categories, loading: catLoading, error: catError, fetchCategories, addCategory, updateCategory, removeCategory } = useCategories();
-  // Per-category counts must reflect the user's overall expenses, not one page of them.
-  const { expenses, loading: expensesLoading } = useAllExpenses();
+  // Per-category counts span all of the user's expenses; the API counts them.
+  const { stats, loading: expensesLoading, error: statsError } = useExpenseStats();
   const { showToast } = useToast();
 
-  const [modalOpen, setModalOpen]       = useState(false);
+  const [panelOpen, setPanelOpen]       = useState(false);
   const [editingCat, setEditingCat]     = useState<Category | undefined>(undefined);
-  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
-  const [deleting, setDeleting]         = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<Category | null>(null);
 
   useEffect(() => {
     if (user) fetchCategories();
   }, [user, fetchCategories]);
 
-  // Expense count per category id
-  const expenseCountById = useMemo(() => {
-    const map = new Map<number, number>();
-    for (const e of expenses) {
-      map.set(e.category.id, (map.get(e.category.id) ?? 0) + 1);
-    }
-    return map;
-  }, [expenses]);
+  // Expense count per category id; a category with no expenses is absent (0).
+  const expenseCountById = useMemo(
+    () => new Map((stats?.by_category ?? []).map((row) => [row.category.id, row.count])),
+    [stats],
+  );
 
   const globalCats = useMemo(() => categories.filter((c) => c.is_global), [categories]);
   const userCats   = useMemo(() => categories.filter((c) => !c.is_global), [categories]);
@@ -58,28 +66,21 @@ function CategoriesContent() {
     }
   }
 
+  // Errors propagate to ConfirmDialog, which keeps itself open and shows them
+  // (e.g. the API's 422 when expenses still reference the category).
   async function handleDelete(id: number) {
-    setDeleting(true);
-    try {
-      await removeCategory(id);
-      showToast("Category deleted.");
-      setConfirmDeleteId(null);
-    } catch (err: unknown) {
-      const apiErr = err as { data?: { message?: string } };
-      showToast(apiErr?.data?.message ?? "Failed to delete category.", "error");
-    } finally {
-      setDeleting(false);
-    }
+    await removeCategory(id);
+    showToast("Category deleted.");
   }
 
   function openAdd() {
     setEditingCat(undefined);
-    setModalOpen(true);
+    setPanelOpen(true);
   }
 
   function openEdit(cat: Category) {
     setEditingCat(cat);
-    setModalOpen(true);
+    setPanelOpen(true);
   }
 
   if (!user) return null;
@@ -88,209 +89,92 @@ function CategoriesContent() {
 
   return (
     <>
-      <CategoryModal
-        open={modalOpen}
-        onClose={() => { setModalOpen(false); setEditingCat(undefined); }}
+      <CategoryPanel
+        open={panelOpen}
+        onClose={() => { setPanelOpen(false); setEditingCat(undefined); }}
         category={editingCat}
         onSave={handleSave}
       />
 
-      <div className="p-4 md:p-8 max-w-5xl mx-auto">
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        onClose={() => setPendingDelete(null)}
+        onConfirm={async () => { if (pendingDelete) await handleDelete(pendingDelete.id); }}
+        title="Delete this category?"
+        description="This permanently removes the category. It can't be undone."
+      >
+        {pendingDelete && (
+          <ConfirmPreview
+            leading={<CategoryIcon icon={pendingDelete.icon} color={pendingDelete.color} />}
+            title={pendingDelete.name}
+            subtitle={plural(expenseCountById.get(pendingDelete.id) ?? 0, "expense")}
+          />
+        )}
+      </ConfirmDialog>
 
-        {/* ── Page header ── */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
-              Categories
-            </h1>
-            <p className="text-white/40 text-sm mt-1">
-              {loading ? "Loading…" : `${userCats.length} custom · ${globalCats.length} default`}
-            </p>
-          </div>
-          <button
-            onClick={openAdd}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/30 text-indigo-300 text-sm font-semibold transition-all"
-          >
-            <span className="material-symbols-rounded" style={{ fontSize: 18 }}>add</span>
-            <span className="hidden sm:inline">New Category</span>
-          </button>
-        </div>
+      <Page>
+        <PageHeader
+          title="Categories"
+          description={loading ? "Loading…" : `${userCats.length} custom · ${globalCats.length} default`}
+          actions={
+            <Button variant="primary" icon="add" collapseLabel onClick={openAdd} aria-label="New category">
+              New category
+            </Button>
+          }
+        />
 
-        {catError && (
-          <p
-            role="alert"
-            className="mb-6 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300"
-          >
-            {catError}
-          </p>
+        {catError && <Alert className="mb-6">{catError}</Alert>}
+
+        {/* Without this every row would show a confident "0 expenses" — and
+            offer to delete a category the API will refuse to remove. */}
+        {statsError && statsError !== "unauthenticated" && (
+          <Alert className="mb-6">{statsError}</Alert>
         )}
 
         {loading ? (
-          <div className="flex items-center justify-center py-20 text-white/30 gap-3">
-            <span className="h-5 w-5 border-2 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin" />
-            Loading…
-          </div>
+          <LoadingState />
         ) : (
-          <div className="space-y-8">
-
-            {/* ── Your categories ── */}
-            <section>
-              <div className="flex items-center gap-3 mb-4">
-                <h2 className="text-sm font-bold text-white/50 uppercase tracking-wider">Your Categories</h2>
-                <span className="text-xs text-white/25">{userCats.length} custom</span>
-              </div>
-
+          <div className="space-y-6">
+            <Card className="overflow-hidden">
+              <CardHeader
+                title="Your categories"
+                description={`${userCats.length} custom ${userCats.length === 1 ? "category" : "categories"}`}
+                action={<Button size="sm" icon="add" onClick={openAdd}>Add category</Button>}
+                className="items-center border-b border-border"
+              />
               {userCats.length === 0 ? (
-                <button
-                  onClick={openAdd}
-                  className="w-full flex items-center justify-center gap-2 p-8 rounded-2xl border border-dashed border-white/10 text-white/30 hover:border-indigo-500/30 hover:text-indigo-300/50 transition-all"
-                >
-                  <span className="material-symbols-rounded" style={{ fontSize: 22 }}>add_circle</span>
-                  <span className="text-sm font-medium">Create your first category</span>
-                </button>
+                <EmptyState
+                  icon="label"
+                  title="No custom categories yet"
+                  description="Create a category to organize your expenses your way."
+                  action={<Button size="sm" variant="primary" icon="add" onClick={openAdd}>Create category</Button>}
+                />
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {userCats.map((cat) => (
-                    <CategoryCard
-                      key={cat.id}
-                      cat={cat}
-                      expenseCount={expenseCountById.get(cat.id) ?? 0}
-                      confirmDeleteId={confirmDeleteId}
-                      deleting={deleting}
-                      onEdit={() => openEdit(cat)}
-                      onDeleteRequest={() => setConfirmDeleteId(cat.id)}
-                      onDeleteConfirm={() => handleDelete(cat.id)}
-                      onDeleteCancel={() => setConfirmDeleteId(null)}
-                    />
-                  ))}
-                  {/* Add new card */}
-                  <button
-                    onClick={openAdd}
-                    className="flex items-center justify-center gap-2 p-5 rounded-2xl border border-dashed border-white/10 text-white/25 hover:border-indigo-500/30 hover:text-indigo-300/50 transition-all min-h-[80px]"
-                  >
-                    <span className="material-symbols-rounded" style={{ fontSize: 20 }}>add</span>
-                    <span className="text-sm font-medium">Add category</span>
-                  </button>
-                </div>
+                <CategoryTable
+                  categories={userCats}
+                  expenseCount={(c) => expenseCountById.get(c.id) ?? 0}
+                  onEdit={openEdit}
+                  onDelete={setPendingDelete}
+                />
               )}
-            </section>
+            </Card>
 
-            {/* ── Default categories ── */}
             {globalCats.length > 0 && (
-              <section>
-                <div className="flex items-center gap-3 mb-4">
-                  <h2 className="text-sm font-bold text-white/50 uppercase tracking-wider">Default Categories</h2>
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[10px] font-semibold uppercase tracking-wide">
-                    Global · Read-only
-                  </span>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {globalCats.map((cat) => (
-                    <div
-                      key={cat.id}
-                      className="flex items-center gap-3 p-4 rounded-2xl bg-white/[0.03] border border-white/[0.06] opacity-60"
-                    >
-                      <div
-                        className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0"
-                        style={{ backgroundColor: cat.color + "25" }}
-                      >
-                        <span className="material-symbols-rounded text-xl" style={{ color: cat.color }}>{cat.icon}</span>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-white truncate">{cat.name}</p>
-                        <p className="text-xs text-white/30 mt-0.5">
-                          {expenseCountById.get(cat.id) ?? 0} expense{(expenseCountById.get(cat.id) ?? 0) !== 1 ? "s" : ""}
-                        </p>
-                      </div>
-                      <span className="text-[10px] text-white/20 font-medium shrink-0">Global</span>
-                    </div>
-                  ))}
-                </div>
-              </section>
+              <Card className="overflow-hidden">
+                <CardHeader
+                  title={<span className="inline-flex items-center gap-2">Default categories <Badge>Read-only</Badge></span>}
+                  description="Shared by everyone and managed by admins"
+                  className="border-b border-border"
+                />
+                <CategoryTable
+                  categories={globalCats}
+                  expenseCount={(c) => expenseCountById.get(c.id) ?? 0}
+                />
+              </Card>
             )}
-
           </div>
         )}
-      </div>
+      </Page>
     </>
-  );
-}
-
-// ── Category card (user-owned) ─────────────────────────────────────────────
-interface CategoryCardProps {
-  cat: Category;
-  expenseCount: number;
-  confirmDeleteId: number | null;
-  deleting: boolean;
-  onEdit: () => void;
-  onDeleteRequest: () => void;
-  onDeleteConfirm: () => void;
-  onDeleteCancel: () => void;
-}
-
-function CategoryCard({ cat, expenseCount, confirmDeleteId, deleting, onEdit, onDeleteRequest, onDeleteConfirm, onDeleteCancel }: CategoryCardProps) {
-  const isConfirming = confirmDeleteId === cat.id;
-  const hasExpenses  = expenseCount > 0;
-
-  return (
-    <div className="flex items-center gap-3 p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm transition-all hover:border-white/15">
-      <div
-        className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0"
-        style={{ backgroundColor: cat.color + "25" }}
-      >
-        <span className="material-symbols-rounded text-xl" style={{ color: cat.color }}>{cat.icon}</span>
-      </div>
-
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-white truncate">{cat.name}</p>
-        <p className="text-xs text-white/35 mt-0.5">
-          {expenseCount} expense{expenseCount !== 1 ? "s" : ""}
-        </p>
-      </div>
-
-      {isConfirming ? (
-        /* Inline confirmation row */
-        <div className="flex items-center gap-2 shrink-0">
-          <span className="text-xs text-white/40 hidden sm:inline">Delete?</span>
-          <button
-            onClick={onDeleteConfirm}
-            disabled={deleting}
-            className="px-2.5 py-1.5 rounded-lg bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 text-red-400 text-xs font-semibold transition-all disabled:opacity-50"
-          >
-            {deleting ? "…" : "Yes"}
-          </button>
-          <button
-            onClick={onDeleteCancel}
-            className="px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white/50 text-xs font-semibold transition-all"
-          >
-            No
-          </button>
-        </div>
-      ) : (
-        <div className="flex items-center gap-1.5 shrink-0">
-          {/* Edit */}
-          <button
-            onClick={onEdit}
-            className="h-8 w-8 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 flex items-center justify-center text-indigo-400 transition-all"
-            title="Edit"
-          >
-            <span className="material-symbols-rounded" style={{ fontSize: 16 }}>edit</span>
-          </button>
-          {/* Delete — disabled if category has expenses */}
-          <button
-            onClick={hasExpenses ? undefined : onDeleteRequest}
-            disabled={hasExpenses}
-            className={`h-8 w-8 rounded-lg border flex items-center justify-center transition-all ${
-              hasExpenses
-                ? "bg-white/[0.03] border-white/[0.06] text-white/20 cursor-not-allowed"
-                : "bg-red-500/10 hover:bg-red-500/20 border-red-500/20 text-red-400"
-            }`}
-            title={hasExpenses ? `Can't delete — ${expenseCount} expense${expenseCount !== 1 ? "s" : ""} use this category` : "Delete"}
-          >
-            <span className="material-symbols-rounded" style={{ fontSize: 16 }}>delete</span>
-          </button>
-        </div>
-      )}
-    </div>
   );
 }

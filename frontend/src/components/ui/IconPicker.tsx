@@ -1,5 +1,8 @@
 "use client";
 
+import { cn } from "@/lib/cn";
+import Icon from "./Icon";
+
 const ICONS = [
   // Finance
   "account_balance_wallet", "savings", "payments", "credit_card", "currency_rupee",
@@ -34,23 +37,31 @@ interface IconPickerProps {
 
 export default function IconPicker({ value, onChange }: IconPickerProps) {
   return (
-    <div className="max-h-48 overflow-y-auto rounded-xl border border-white/10 bg-white/5 p-2">
-      <div className="grid grid-cols-8 gap-1">
-        {ICONS.map((icon) => (
-          <button
-            key={icon}
-            type="button"
-            title={icon}
-            onClick={() => onChange(icon)}
-            className={`flex items-center justify-center w-10 h-10 rounded-lg transition-all ${
-              value === icon
-                ? "bg-indigo-500/30 border-2 border-indigo-500 text-indigo-300"
-                : "text-white/50 hover:bg-white/10 hover:text-white/80 border-2 border-transparent"
-            }`}
-          >
-            <span className="material-symbols-rounded" style={{ fontSize: 20 }}>{icon}</span>
-          </button>
-        ))}
+    <div className="max-h-64 overflow-y-auto rounded-lg border border-border bg-background p-1.5">
+      <div role="radiogroup" aria-label="Icon" className="grid grid-cols-8 gap-1">
+        {ICONS.map((icon) => {
+          const selected = value === icon;
+          return (
+            <button
+              key={icon}
+              type="button"
+              role="radio"
+              aria-checked={selected}
+              aria-label={icon}
+              title={icon}
+              onClick={() => onChange(icon)}
+              className={cn(
+                "flex aspect-square items-center justify-center rounded-md transition-colors",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                selected
+                  ? "bg-foreground text-background"
+                  : "text-muted hover:bg-subtle hover:text-foreground",
+              )}
+            >
+              <Icon name={icon} size={20} />
+            </button>
+          );
+        })}
       </div>
     </div>
   );

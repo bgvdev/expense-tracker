@@ -1,4 +1,6 @@
 import type { PaginationMeta } from "@/lib/types";
+import { cn } from "@/lib/cn";
+import Button from "./Button";
 
 interface PaginationProps {
   meta: PaginationMeta;
@@ -30,15 +32,6 @@ function buildPageWindows(current: number, last: number): (number | "…")[] {
   return pages;
 }
 
-const btnBase =
-  "h-8 min-w-[2rem] flex items-center justify-center rounded-md border text-sm font-medium transition-colors whitespace-nowrap";
-const btnInactive =
-  "border-white/10 bg-white/5 text-white/70 hover:bg-white/10 hover:text-white";
-const btnActive =
-  "border-indigo-500 bg-indigo-500 text-white font-bold";
-const btnDisabled =
-  "border-white/10 bg-white/5 text-white/25 opacity-40 cursor-not-allowed pointer-events-none";
-
 export default function Pagination({ meta, onPageChange }: PaginationProps) {
   if (meta.last_page <= 1) return null;
 
@@ -46,68 +39,59 @@ export default function Pagination({ meta, onPageChange }: PaginationProps) {
   const pages = buildPageWindows(current, last);
 
   return (
-    <div className="flex flex-col items-center gap-2 py-2">
+    <nav aria-label="Pagination" className="flex items-center gap-1">
+      <Button
+        size="sm"
+        variant="ghost"
+        icon="chevron_left"
+        onClick={() => onPageChange(current - 1)}
+        disabled={current === 1}
+        aria-label="Previous page"
+      >
+        <span className="hidden sm:inline">Prev</span>
+      </Button>
 
-      {/* ── Desktop: numbered pills ── */}
-      <div className="hidden md:flex items-center gap-1">
-        <button
-          className={`${btnBase} px-3 ${current === 1 ? btnDisabled : btnInactive}`}
-          onClick={() => onPageChange(current - 1)}
-          disabled={current === 1}
-          aria-label="Previous page"
-        >
-          ← Prev
-        </button>
-
+      {/* Numbered pages on desktop */}
+      <div className="hidden items-center gap-1 md:flex">
         {pages.map((p, i) =>
           p === "…" ? (
-            <span key={`ellipsis-${i}`} className="px-1 text-gray-400 select-none">
-              …
-            </span>
+            <span key={`ellipsis-${i}`} className="px-1 text-faint select-none">…</span>
           ) : (
             <button
               key={p}
-              className={`${btnBase} w-8 ${p === current ? btnActive : btnInactive}`}
+              type="button"
               onClick={() => p !== current && onPageChange(p)}
               aria-label={`Page ${p}`}
               aria-current={p === current ? "page" : undefined}
+              className={cn(
+                "h-8 min-w-8 rounded-md px-2 text-xs font-medium tabular-nums transition-colors",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                p === current
+                  ? "bg-foreground text-background"
+                  : "text-muted hover:bg-subtle hover:text-foreground",
+              )}
             >
               {p}
             </button>
-          )
+          ),
         )}
-
-        <button
-          className={`${btnBase} px-3 ${current === last ? btnDisabled : btnInactive}`}
-          onClick={() => onPageChange(current + 1)}
-          disabled={current === last}
-          aria-label="Next page"
-        >
-          Next →
-        </button>
       </div>
 
-      {/* ── Mobile: compact prev / label / next ── */}
-      <div className="flex md:hidden items-center gap-3 w-full">
-        <button
-          className={`${btnBase} flex-1 px-3 ${current === 1 ? btnDisabled : btnInactive}`}
-          onClick={() => onPageChange(current - 1)}
-          disabled={current === 1}
-        >
-          ← Prev
-        </button>
-        <span className="text-sm text-white/50 whitespace-nowrap">
-          Page <strong className="text-white/80">{current}</strong> of <strong className="text-white/80">{last}</strong>
-        </span>
-        <button
-          className={`${btnBase} flex-1 px-3 ${current === last ? btnDisabled : btnInactive}`}
-          onClick={() => onPageChange(current + 1)}
-          disabled={current === last}
-        >
-          Next →
-        </button>
-      </div>
+      {/* Compact label on mobile */}
+      <span className="px-2 text-xs text-muted tabular-nums md:hidden">
+        {current} / {last}
+      </span>
 
-    </div>
+      <Button
+        size="sm"
+        variant="ghost"
+        iconRight="chevron_right"
+        onClick={() => onPageChange(current + 1)}
+        disabled={current === last}
+        aria-label="Next page"
+      >
+        <span className="hidden sm:inline">Next</span>
+      </Button>
+    </nav>
   );
 }

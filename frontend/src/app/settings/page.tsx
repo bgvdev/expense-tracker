@@ -6,6 +6,15 @@ import { useToast } from "@/hooks/useToast";
 import PasswordInput from "@/components/ui/PasswordInput";
 import RequireAuth from "@/components/layout/RequireAuth";
 import AppShell from "@/components/layout/AppShell";
+import Page from "@/components/layout/Page";
+import PageHeader from "@/components/ui/PageHeader";
+import { Card, CardBody, CardFooter } from "@/components/ui/Card";
+import Field from "@/components/ui/Field";
+import Input from "@/components/ui/Input";
+import Button from "@/components/ui/Button";
+import Alert from "@/components/ui/Alert";
+import Avatar from "@/components/ui/Avatar";
+import { ThemeSwitcher } from "@/components/ui/ThemeToggle";
 
 export default function SettingsPage() {
   return (
@@ -88,134 +97,127 @@ function Settings() {
   if (!user) return null;
 
   return (
-    <main className="p-4 md:p-8 max-w-2xl mx-auto">
-      {/* ── Page Header ── */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
-          Account Settings
-        </h1>
-        <p className="text-white/40 text-sm mt-1">Manage your profile and security</p>
+    <Page>
+      <PageHeader title="Settings" description="Manage your profile, appearance and security" />
+
+      <div className="divide-y divide-border">
+        <Section title="Profile" description="Your name and the email address you sign in with.">
+          <Card>
+            <form onSubmit={handleProfileSubmit}>
+              <CardBody className="space-y-5 pt-5">
+                <div className="flex items-center gap-3">
+                  <Avatar name={user.name} size="lg" />
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-foreground">{user.name}</p>
+                    <p className="truncate text-xs text-muted">{user.email}</p>
+                  </div>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label="Full name" htmlFor="settings-name">
+                    <Input
+                      id="settings-name"
+                      type="text" required maxLength={255} autoComplete="name"
+                      value={name} onChange={(e) => setName(e.target.value)}
+                    />
+                  </Field>
+                  <Field label="Email" htmlFor="settings-email">
+                    <Input
+                      id="settings-email"
+                      type="email" required maxLength={255} autoComplete="email"
+                      value={email} onChange={(e) => setEmail(e.target.value)}
+                    />
+                  </Field>
+                </div>
+              </CardBody>
+              <CardFooter>
+                <Button type="submit" variant="primary" loading={profileSaving}>
+                  {profileSaving ? "Saving…" : "Save profile"}
+                </Button>
+              </CardFooter>
+            </form>
+          </Card>
+        </Section>
+
+        <Section title="Appearance" description="Choose a theme, or follow your system setting.">
+          <Card>
+            <CardBody className="flex flex-col gap-3 pt-5 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-medium text-foreground">Theme</p>
+                <p className="mt-0.5 text-xs text-muted">Applies on this device.</p>
+              </div>
+              <ThemeSwitcher />
+            </CardBody>
+          </Card>
+        </Section>
+
+        <Section title="Security" description="Changing your password signs you out on every other device.">
+          <Card>
+            <form onSubmit={handlePasswordSubmit}>
+              <CardBody className="space-y-4 pt-5">
+                <div className="sm:w-1/2 sm:pr-2">
+                  <Field label="Current password" htmlFor="settings-current-password">
+                    <PasswordInput
+                      id="settings-current-password"
+                      required
+                      autoComplete="current-password"
+                      value={currentPassword}
+                      onChange={setCurrentPassword}
+                      placeholder="Enter current password"
+                    />
+                  </Field>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label="New password" htmlFor="settings-new-password">
+                    <PasswordInput
+                      id="settings-new-password"
+                      required
+                      minLength={8}
+                      autoComplete="new-password"
+                      value={newPassword}
+                      onChange={setNewPassword}
+                      placeholder="At least 8 characters"
+                    />
+                  </Field>
+                  <Field label="Confirm new password" htmlFor="settings-confirm-password">
+                    <PasswordInput
+                      id="settings-confirm-password"
+                      required
+                      minLength={8}
+                      autoComplete="new-password"
+                      value={confirmPassword}
+                      onChange={setConfirmPassword}
+                      placeholder="Repeat new password"
+                    />
+                  </Field>
+                </div>
+
+                {passwordError && <Alert>{passwordError}</Alert>}
+              </CardBody>
+              <CardFooter>
+                <Button type="submit" variant="primary" loading={passwordSaving}>
+                  {passwordSaving ? "Updating…" : "Update password"}
+                </Button>
+              </CardFooter>
+            </form>
+          </Card>
+        </Section>
       </div>
+    </Page>
+  );
+}
 
-      <div className="space-y-6">
-        {/* ── Profile Section ── */}
-        <section className="rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm p-6">
-          <div className="flex items-center gap-3 mb-6">
-            <span className="h-9 w-9 rounded-xl bg-indigo-500/20 flex items-center justify-center">
-              <span className="material-symbols-rounded text-indigo-400 text-xl">person</span>
-            </span>
-            <div>
-              <h2 className="text-base font-bold text-white">Profile</h2>
-              <p className="text-xs text-white/35">Update your name and email address</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4 mb-6 p-4 rounded-xl bg-white/5 border border-white/10">
-            <div className="h-14 w-14 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-2xl shrink-0">
-              {user.name.charAt(0).toUpperCase()}
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-white">{user.name}</p>
-              <p className="text-xs text-white/50">{user.email}</p>
-            </div>
-          </div>
-
-          <form onSubmit={handleProfileSubmit} className="space-y-4">
-            <div>
-              <label className="block text-xs font-semibold text-white/50 uppercase tracking-widest mb-2">Full Name</label>
-              <input
-                type="text" required maxLength={255}
-                value={name} onChange={(e) => setName(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-white/25
-                           focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 transition-all"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-white/50 uppercase tracking-widest mb-2">Email Address</label>
-              <input
-                type="email" required maxLength={255}
-                value={email} onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-white/25
-                           focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 transition-all"
-              />
-            </div>
-            <button
-              type="submit" disabled={profileSaving}
-              className="w-full py-3 rounded-xl font-bold text-sm bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500
-                         active:scale-[0.98] transition-all disabled:opacity-60 flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/25"
-            >
-              {profileSaving ? (
-                <><span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Saving…</>
-              ) : (
-                <><span className="material-symbols-rounded text-lg">save</span>Save Profile</>
-              )}
-            </button>
-          </form>
-        </section>
-
-        {/* ── Security Section ── */}
-        <section className="rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm p-6">
-          <div className="flex items-center gap-3 mb-6">
-            <span className="h-9 w-9 rounded-xl bg-purple-500/20 flex items-center justify-center">
-              <span className="material-symbols-rounded text-purple-400 text-xl">lock</span>
-            </span>
-            <div>
-              <h2 className="text-base font-bold text-white">Security</h2>
-              <p className="text-xs text-white/35">Change your password</p>
-            </div>
-          </div>
-
-          <form onSubmit={handlePasswordSubmit} className="space-y-4">
-            <div>
-              <label className="block text-xs font-semibold text-white/50 uppercase tracking-widest mb-2">Current Password</label>
-              <PasswordInput
-                required
-                value={currentPassword}
-                onChange={setCurrentPassword}
-                placeholder="Enter current password"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-white/50 uppercase tracking-widest mb-2">New Password</label>
-              <PasswordInput
-                required
-                minLength={8}
-                value={newPassword}
-                onChange={setNewPassword}
-                placeholder="At least 8 characters"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-white/50 uppercase tracking-widest mb-2">Confirm New Password</label>
-              <PasswordInput
-                required
-                minLength={8}
-                value={confirmPassword}
-                onChange={setConfirmPassword}
-                placeholder="Repeat new password"
-              />
-            </div>
-
-            {passwordError && (
-              <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
-                {passwordError}
-              </p>
-            )}
-
-            <button
-              type="submit" disabled={passwordSaving}
-              className="w-full py-3 rounded-xl font-bold text-sm bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-400 hover:to-pink-500
-                         active:scale-[0.98] transition-all disabled:opacity-60 flex items-center justify-center gap-2 shadow-lg shadow-purple-500/25"
-            >
-              {passwordSaving ? (
-                <><span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Updating…</>
-              ) : (
-                <><span className="material-symbols-rounded text-lg">lock_reset</span>Update Password</>
-              )}
-            </button>
-          </form>
-        </section>
+/**
+ * One settings group: its title and explanation in a left column, the controls
+ * in a card on the right. On narrow screens the two stack.
+ */
+function Section({ title, description, children }: { title: string; description: string; children: React.ReactNode }) {
+  return (
+    <section className="grid gap-4 py-8 first:pt-0 last:pb-0 lg:grid-cols-3 lg:gap-8">
+      <div>
+        <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+        <p className="mt-1 text-sm text-muted">{description}</p>
       </div>
-    </main>
+      <div className="lg:col-span-2">{children}</div>
+    </section>
   );
 }

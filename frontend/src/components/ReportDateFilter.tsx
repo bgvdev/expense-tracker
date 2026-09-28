@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 import type { DateRange } from "@/hooks/useReportsData";
+import Chip from "@/components/ui/Chip";
+import Field from "@/components/ui/Field";
+import Input from "@/components/ui/Input";
 
 export type ReportDatePreset = "all" | "month" | "last_month" | "3months" | "6months" | "year" | "custom";
 
@@ -66,42 +69,34 @@ export default function ReportDateFilter({ onChange }: Props) {
   };
 
   return (
-    <div className="rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm p-4 mb-5">
-      <div className="flex flex-wrap gap-2">
+    <div className="mb-6">
+      <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 scrollbar-none md:mx-0 md:flex-wrap md:px-0">
         {PRESETS.map(({ value, label }) => (
-          <button
-            key={value}
-            onClick={() => select(value)}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
-              preset === value
-                ? "bg-indigo-500/20 border-indigo-500/40 text-indigo-300"
-                : "border-white/10 bg-white/5 text-white/60 hover:bg-white/10"
-            }`}
-          >
+          <Chip key={value} selected={preset === value} onClick={() => select(value)}>
             {label}
-          </button>
+          </Chip>
         ))}
       </div>
       {preset === "custom" && (
-        <div className="mt-3 flex gap-3 max-w-sm">
-          <div className="flex-1">
-            <label className="text-xs text-white/40 block mb-1">From</label>
-            <input
+        <div className="mt-3 grid max-w-sm grid-cols-2 gap-3">
+          <Field label="From" htmlFor="report-from">
+            <Input
+              id="report-from"
               type="date"
+              size="sm"
               value={customFrom ?? ""}
               onChange={(e) => updateCustom(e.target.value || null, customTo)}
-              className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-sm text-white focus:outline-none focus:border-indigo-500/50 [color-scheme:dark]"
             />
-          </div>
-          <div className="flex-1">
-            <label className="text-xs text-white/40 block mb-1">To</label>
-            <input
+          </Field>
+          <Field label="To" htmlFor="report-to">
+            <Input
+              id="report-to"
               type="date"
+              size="sm"
               value={customTo ?? ""}
               onChange={(e) => updateCustom(customFrom, e.target.value || null)}
-              className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-sm text-white focus:outline-none focus:border-indigo-500/50 [color-scheme:dark]"
             />
-          </div>
+          </Field>
         </div>
       )}
     </div>

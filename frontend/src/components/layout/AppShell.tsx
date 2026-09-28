@@ -3,28 +3,34 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
+import { cn } from "@/lib/cn";
+import Icon from "@/components/ui/Icon";
+import Avatar from "@/components/ui/Avatar";
+import { IconButton } from "@/components/ui/Button";
+import ThemeToggle from "@/components/ui/ThemeToggle";
 
 const NAV_ITEMS = [
-  { href: "/dashboard",   label: "Dashboard",  icon: "home"                  },
-  { href: "/expenses",    label: "Expenses",   icon: "receipt_long"          },
-  { href: "/categories",  label: "Categories", icon: "label"                 },
-  { href: "/reports",     label: "Reports",    icon: "bar_chart"             },
-  { href: "/settings",    label: "Settings",   icon: "settings"              },
+  { href: "/dashboard",  label: "Dashboard",  icon: "space_dashboard" },
+  { href: "/expenses",   label: "Expenses",   icon: "receipt_long" },
+  { href: "/categories", label: "Categories", icon: "label" },
+  { href: "/reports",    label: "Reports",    icon: "bar_chart" },
+  { href: "/settings",   label: "Settings",   icon: "settings" },
 ] as const;
 
 const ADMIN_NAV_ITEM = { href: "/admin", label: "Admin", icon: "admin_panel_settings" } as const;
 
-const ALL_ROUTES = [...NAV_ITEMS, ADMIN_NAV_ITEM];
-
 function getPageTitle(pathname: string): string {
-  return ALL_ROUTES.find((n) => pathname.startsWith(n.href))?.label ?? "Expense Tracker";
+  return [...NAV_ITEMS, ADMIN_NAV_ITEM].find((n) => pathname.startsWith(n.href))?.label ?? "Expense Tracker";
 }
 
-function UserAvatar({ initials }: { initials: string }) {
+function Logo() {
   return (
-    <div className="h-8 w-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold shrink-0">
-      {initials}
-    </div>
+    <Link href="/dashboard" className="flex items-center gap-2.5">
+      <span className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-sm font-semibold text-primary-foreground">
+        ₹
+      </span>
+      <span className="text-sm font-semibold tracking-tight text-foreground">Expense Tracker</span>
+    </Link>
   );
 }
 
@@ -33,13 +39,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const router   = useRouter();
   const { user, logout } = useAuth();
 
-  const initials = user?.name
-    ? user.name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()
-    : "?";
-
-  const navItems = user?.is_admin
-    ? [...NAV_ITEMS, ADMIN_NAV_ITEM]
-    : [...NAV_ITEMS];
+  const navItems = user?.is_admin ? [...NAV_ITEMS, ADMIN_NAV_ITEM] : [...NAV_ITEMS];
 
   function handleLogout() {
     logout();
@@ -47,99 +47,89 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex min-h-screen">
-
-      {/* ── Desktop Sidebar ──────────────────────────────── */}
-      <aside className="hidden md:flex flex-col w-[220px] shrink-0 fixed top-0 left-0 h-full z-40 border-r border-white/10 bg-[rgb(6,6,18)]/80 backdrop-blur-md">
-
-        {/* Logo */}
-        <div className="flex items-center gap-3 px-5 py-5 border-b border-white/10">
-          <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm shrink-0">
-            ₹
-          </div>
-          <div>
-            <p className="text-sm font-bold text-white leading-tight">Expense Tracker</p>
-            <p className="text-[10px] text-white/40">Personal Finance</p>
-          </div>
+    <div className="min-h-screen">
+      {/* ── Desktop sidebar ── */}
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-60 flex-col border-r border-border bg-surface md:flex">
+        <div className="flex h-14 items-center px-5">
+          <Logo />
         </div>
 
-        {/* Nav links */}
-        <nav className="flex-1 px-3 py-4 flex flex-col gap-1 overflow-y-auto">
-          <p className="text-[10px] font-semibold text-white/30 uppercase tracking-widest px-2 mb-2">
-            Main Menu
-          </p>
+        <nav aria-label="Main" className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-3 py-3">
           {navItems.map(({ href, label, icon }) => {
             const active = pathname.startsWith(href);
             return (
               <Link
                 key={href}
                 href={href}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                aria-current={active ? "page" : undefined}
+                className={cn(
+                  "flex h-9 items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors",
                   active
-                    ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"
-                    : "text-white/50 hover:text-white/80 hover:bg-white/5 border border-transparent"
-                }`}
+                    ? "bg-subtle text-foreground"
+                    : "text-muted hover:bg-subtle/60 hover:text-foreground",
+                )}
               >
-                <span className="material-symbols-rounded text-[20px]">{icon}</span>
+                <Icon name={icon} size={19} className={active ? "text-foreground" : "text-faint"} />
                 {label}
               </Link>
             );
           })}
         </nav>
 
-        {/* User footer */}
-        <div className="px-3 py-4 border-t border-white/10 flex items-center gap-2.5">
-          <UserAvatar initials={initials} />
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold text-white truncate">{user?.name}</p>
-            <p className="text-[10px] text-white/40 truncate">{user?.email}</p>
+        <div className="flex items-center gap-2.5 border-t border-border px-3 py-3">
+          <Avatar name={user?.name} />
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium text-foreground">{user?.name}</p>
+            <p className="truncate text-xs text-muted">{user?.email}</p>
           </div>
-          <button
-            onClick={handleLogout}
-            title="Sign out"
-            className="h-7 w-7 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/40 hover:text-white/70 transition-all shrink-0"
-          >
-            <span className="material-symbols-rounded text-[16px]">logout</span>
-          </button>
+          <ThemeToggle />
+          <IconButton icon="logout" label="Sign out" onClick={handleLogout} />
         </div>
       </aside>
 
-      {/* ── Content area (sidebar-offset on desktop) ─────── */}
-      <div className="flex-1 flex flex-col md:ml-[220px]">
-
-        {/* Mobile top bar */}
-        <header className="md:hidden flex items-center justify-between px-4 py-3 border-b border-white/10 bg-[rgb(6,6,18)]/80 backdrop-blur-md sticky top-0 z-30">
-          <p className="text-base font-bold text-white">{getPageTitle(pathname)}</p>
-          <UserAvatar initials={initials} />
+      <div className="flex min-h-screen flex-col md:pl-60">
+        {/* ── Mobile top bar ── */}
+        <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border bg-background/85 px-4 backdrop-blur md:hidden">
+          <p className="text-base font-semibold tracking-tight text-foreground">{getPageTitle(pathname)}</p>
+          <div className="flex items-center gap-1">
+            <ThemeToggle />
+            <IconButton icon="logout" label="Sign out" onClick={handleLogout} />
+          </div>
         </header>
 
-        {/* Page content — pb-16 on mobile so bottom nav doesn't overlap */}
-        <main className="flex-1 pb-16 md:pb-0">
-          {children}
-        </main>
+        {/* pb-20 on mobile so the bottom nav never covers content */}
+        <main className="flex-1 pb-20 md:pb-0">{children}</main>
 
-        {/* Mobile bottom nav */}
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 h-16 bg-[rgb(6,6,18)]/90 backdrop-blur-md border-t border-white/10 flex items-stretch">
+        {/* ── Mobile bottom nav ── */}
+        <nav
+          aria-label="Main"
+          className="fixed inset-x-0 bottom-0 z-40 flex h-16 items-stretch border-t border-border bg-surface/95 backdrop-blur md:hidden pb-[env(safe-area-inset-bottom)]"
+        >
           {navItems.map(({ href, label, icon }) => {
             const active = pathname.startsWith(href);
             return (
               <Link
                 key={href}
                 href={href}
-                className={`relative flex-1 flex flex-col items-center justify-center gap-0.5 text-[10px] font-medium transition-all ${
-                  active ? "text-indigo-400" : "text-white/40 hover:text-white/60"
-                }`}
-              >
-                <span className="material-symbols-rounded text-[22px]">{icon}</span>
-                {label}
-                {active && (
-                  <span className="absolute bottom-1.5 w-1 h-1 rounded-full bg-indigo-400" />
+                aria-current={active ? "page" : undefined}
+                className={cn(
+                  "flex flex-1 flex-col items-center justify-center gap-0.5 text-[10px] font-medium transition-colors",
+                  active ? "text-foreground" : "text-faint hover:text-muted",
                 )}
+              >
+                <span
+                  className={cn(
+                    "flex h-7 w-12 items-center justify-center rounded-full transition-colors",
+                    active && "bg-subtle",
+                  )}
+                >
+                  <Icon name={icon} size={20} />
+                </span>
+                {label}
               </Link>
             );
           })}
         </nav>
-
       </div>
     </div>
   );

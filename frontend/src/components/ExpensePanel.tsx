@@ -2,15 +2,21 @@
 
 import { useState, FormEvent, useEffect, useMemo } from "react";
 import Select from "@/components/ui/Select";
+import SidePanel from "@/components/ui/SidePanel";
+import Field from "@/components/ui/Field";
+import Input from "@/components/ui/Input";
+import Button from "@/components/ui/Button";
+import Alert from "@/components/ui/Alert";
+import { formatCurrency } from "@/lib/format";
 import { evaluateAmount, isArithmetic } from "@/lib/calc";
 import type { Category, Expense, NewExpense, PaymentMethod, UpdateExpense } from "@/lib/types";
 
 interface CommonProps {
+  open: boolean;
+  onClose: () => void;
   categories: Category[];
   catLoading: boolean;
   paymentMethods: PaymentMethod[];
-  /** Renders a Cancel button next to the submit button. */
-  onCancel?: () => void;
 }
 
 /**
@@ -26,10 +32,11 @@ type Props = CommonProps &
 
 const today = () => new Date().toISOString().split("T")[0];
 
-export default function ExpenseForm({
+export default function ExpensePanel({
+  open,
+  onClose,
   expense,
   onSubmit,
-  onCancel,
   categories,
   catLoading,
   paymentMethods,
@@ -132,54 +139,62 @@ export default function ExpenseForm({
     [paymentMethods],
   );
 
-  const labelClass = "block text-xs font-semibold text-white/50 uppercase tracking-widest mb-2";
-  const inputClass =
-    "w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-white/25 " +
-    "focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 transition-all duration-200";
-
   return (
+    <SidePanel
+      open={open}
+      onClose={onClose}
+      title={isEdit ? "Edit expense" : "New expense"}
+      description={isEdit ? "Update the details of this expense" : "Record a new expense"}
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>Cancel</Button>
+          <Button
+            type="submit"
+            form="expense-form"
+            id="expense-submit-btn"
+            variant="primary"
+            loading={submitting}
+          >
+            {submitting ? (isEdit ? "Saving…" : "Adding…") : isEdit ? "Save changes" : "Add expense"}
+          </Button>
+        </>
+      }
+    >
     <form
+      id="expense-form"
       onSubmit={handleSubmit}
-      className="space-y-5"
+      className="space-y-4"
       aria-label={isEdit ? "Edit expense form" : "Add expense form"}
     >
-      {/* Amount */}
-      <div>
-        <label htmlFor="expense-amount" className={labelClass}>Amount (₹)</label>
-        <div className="relative">
-          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-400 font-bold text-lg">₹</span>
-          <input
-            id="expense-amount"
-            type="text"
-            inputMode="text"
-            autoComplete="off"
-            required
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            placeholder="0.00  or  250+40"
-            aria-invalid={amountInvalid}
-            aria-describedby="expense-amount-hint"
-            className={`${inputClass} pl-10 text-lg font-semibold ${
-              amountInvalid ? "border-red-500/50" : ""
-            }`}
-          />
-        </div>
-        <p
-          id="expense-amount-hint"
-          aria-live="polite"
-          className={`mt-1.5 text-xs ${amountInvalid ? "text-red-400" : "text-white/40"}`}
-        >
-          {amountInvalid
-            ? "That is not valid arithmetic."
-            : showAmountCalc && amountValue !== null
-              ? `= ₹${amountValue.toFixed(2)}`
-              : "Tip: you can type a sum, e.g. 250+40*2"}
-        </p>
-      </div>
+      <Field
+        label="Amount"
+        htmlFor="expense-amount"
+        hintId="expense-amount-hint"
+        error={amountInvalid ? "That is not valid arithmetic." : undefined}
+        hint={
+          showAmountCalc && amountValue !== null
+            ? `= ${formatCurrency(amountValue)}`
+            : "Tip: you can type a sum, e.g. 250+40*2"
+        }
+      >
+        <Input
+          id="expense-amount"
+          type="text"
+          inputMode="text"
+          autoComplete="off"
+          required
+          size="lg"
+          prefix="₹"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          placeholder="0.00  or  250+40"
+          invalid={amountInvalid}
+          aria-describedby="expense-amount-hint"
+          className="text-base font-medium tabular-nums"
+        />
+      </Field>
 
-      {/* Category */}
-      <div>
-        <label htmlFor="expense-category" className={labelClass}>Category</label>
+      <Field label="Category" htmlFor="expense-category">
         <Select
           id="expense-category"
           value={categoryId}
@@ -188,93 +203,47 @@ export default function ExpenseForm({
           disabled={catLoading}
           placeholder={catLoading ? "Loading…" : "Select a category"}
         />
-      </div>
+      </Field>
 
-      {/* Description */}
-      <div>
-        <label htmlFor="expense-description" className={labelClass}>
-          Description <span className="normal-case font-normal text-white/30">(optional)</span>
-        </label>
-        <input
+      <Field label="Description" htmlFor="expense-description" optional>
+        <Input
           id="expense-description"
           type="text"
           maxLength={255}
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           placeholder="e.g. Dinner at the restaurant"
-          className={inputClass}
         />
-      </div>
+      </Field>
 
-      {/* Date */}
-      <div>
-        <label htmlFor="expense-date" className={labelClass}>Date</label>
-        <input
-          id="expense-date"
-          type="date"
-          required
-          value={spentAt}
-          onChange={(e) => setSpentAt(e.target.value)}
-          className={`${inputClass} [color-scheme:dark]`}
-        />
-      </div>
-
-      {/* Payment Method */}
-      {paymentMethods.length > 0 && (
-        <div>
-          <label htmlFor="expense-payment-method" className={labelClass}>Payment Method</label>
-          <Select
-            id="expense-payment-method"
-            value={paymentMethodId}
-            onChange={setPaymentMethodId}
-            options={paymentOptions}
-            fallbackIcon="credit_card"
-            placeholder="Select a payment method"
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Date" htmlFor="expense-date">
+          <Input
+            id="expense-date"
+            type="date"
+            required
+            value={spentAt}
+            onChange={(e) => setSpentAt(e.target.value)}
           />
-        </div>
-      )}
+        </Field>
 
-      {formError && (
-        <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
-          {formError}
-        </p>
-      )}
-
-      <div className="flex gap-3">
-        {onCancel && (
-          <button
-            type="button"
-            onClick={onCancel}
-            className="px-4 py-3.5 rounded-xl font-semibold text-sm text-white/60
-                       bg-white/5 hover:bg-white/10 border border-white/10 transition-all"
-          >
-            Cancel
-          </button>
+        {paymentMethods.length > 0 && (
+          <Field label="Payment method" htmlFor="expense-payment-method">
+            <Select
+              id="expense-payment-method"
+              value={paymentMethodId}
+              onChange={setPaymentMethodId}
+              options={paymentOptions}
+              fallbackIcon="credit_card"
+              placeholder="Select a method"
+            />
+          </Field>
         )}
-        <button
-          type="submit"
-          id="expense-submit-btn"
-          disabled={submitting}
-          className="flex-1 py-3.5 rounded-xl font-bold text-sm tracking-wide
-                     bg-gradient-to-r from-indigo-500 to-purple-600
-                     hover:from-indigo-400 hover:to-purple-500
-                     active:scale-[0.98] transition-all duration-200
-                     disabled:opacity-60 disabled:cursor-not-allowed
-                     flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/25"
-        >
-          {submitting ? (
-            <>
-              <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              {isEdit ? "Saving…" : "Adding…"}
-            </>
-          ) : (
-            <>
-              <span className="material-symbols-rounded text-lg">{isEdit ? "check" : "add_circle"}</span>
-              {isEdit ? "Save Changes" : "Add Expense"}
-            </>
-          )}
-        </button>
       </div>
+
+      {formError && <Alert>{formError}</Alert>}
+
     </form>
+    </SidePanel>
   );
 }

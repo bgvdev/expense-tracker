@@ -1,27 +1,48 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
-import { useAllExpenses } from "@/hooks/useAllExpenses";
-import { useExpenseSummary } from "@/hooks/useExpenseSummary";
+import { useExpenses, useExpenseMutations, fetchAllMatching } from "@/hooks/useExpenses";
 import { useAuth } from "@/hooks/useAuth";
 import { useCategories } from "@/hooks/useCategories";
 import { usePaymentMethods } from "@/hooks/usePaymentMethods";
-import { useFilteredExpenses, FilterState, DEFAULT_FILTERS } from "@/hooks/useFilteredExpenses";
+import {
+  DEFAULT_FILTERS, DEFAULT_SORT, DEFAULT_SORT_DIR, EMPTY_FILTERS, dateBounds, isFiltered as hasFilters,
+  type FilterState, type SortKey, type SortState,
+} from "@/lib/expenseQuery";
 import { useToast } from "@/hooks/useToast";
-import Modal from "@/components/ui/Modal";
-import SummaryCard from "@/components/ui/SummaryCard";
+import Page from "@/components/layout/Page";
+import PageHeader from "@/components/ui/PageHeader";
+import StatCard from "@/components/ui/StatCard";
+import Button from "@/components/ui/Button";
+import Alert from "@/components/ui/Alert";
+import { Card, CardHeader } from "@/components/ui/Card";
+import { formatCurrency } from "@/lib/format";
+import Select from "@/components/ui/Select";
 import Pagination from "@/components/ui/Pagination";
 import ExpenseList from "@/components/ExpenseList";
-import ExpenseForm from "@/components/ExpenseForm";
+import ExpensePanel from "@/components/ExpensePanel";
 import ExpenseFilters from "@/components/ExpenseFilters";
 import AppShell from "@/components/layout/AppShell";
 import RequireAuth from "@/components/layout/RequireAuth";
 import { exportToCSV } from "@/lib/utils";
-import type { Expense, PaginationMeta } from "@/lib/types";
+import type { Expense } from "@/lib/types";
+
+/** Short description of the applied date range, for the total's hint. */
+function rangeLabel(f: FilterState): string {
+  const labels: Record<string, string> = {
+    all: "All time", today: "Today", week: "Last 7 days", month: "This month", last_month: "Last month",
+  };
+  if (f.datePreset !== "custom") return labels[f.datePreset];
+  const [from, to] = dateBounds(f);
+  if (from && to) return `${from} – ${to}`;
+  if (from) return `Since ${from}`;
+  if (to) return `Until ${to}`;
+  return "All time";
+}
 
 const PER_PAGE_OPTIONS = [5, 10, 15, 25, 50];
+const PER_PAGE_SELECT = PER_PAGE_OPTIONS.map((n) => ({ value: String(n), label: String(n) }));
 const DEFAULT_PER_PAGE = 10;
 
 export default function ExpensesPage() {
@@ -46,19 +67,20 @@ function ExpensesContent() {
   })();
 
   const { user } = useAuth();
-  // Filters, totals, and the category breakdown must reflect the user's overall
-  // expenses, not just whichever page happens to be fetched — so we load the
-  // full dataset once and filter/paginate it client-side.
-  const { expenses, loading: expensesLoading, error, addExpense, updateExpense, removeExpense } =
-    useAllExpenses();
-  const { thisMonth, loading: summaryLoading, fetchSummary } = useExpenseSummary();
   const { categories, loading: catLoading, fetchCategories } = useCategories();
   const { paymentMethods, fetchPaymentMethods } = usePaymentMethods();
   const { showToast } = useToast();
 
-  const [filters, setFilters]               = useState<FilterState>(DEFAULT_FILTERS);
+  // Opens on the current month. Filtering, sorting and paging all happen in the
+  // API; this page only says what to ask for and renders the page it gets back.
+  const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
+  const [sort, setSort]       = useState<SortState>(DEFAULT_SORT);
   const [addExpenseOpen, setAddExpenseOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const [exporting, setExporting] = useState(false);
+
+  const { expenses, meta, loading, error, refetch } = useExpenses({ filters, sort, page, perPage });
+  const { addExpense, updateExpense, removeExpense } = useExpenseMutations();
 
   useEffect(() => {
     if (user) {
@@ -67,230 +89,168 @@ function ExpensesContent() {
     }
   }, [user, fetchCategories, fetchPaymentMethods]);
 
-  const { filtered, filteredTotal, filteredCount, isFiltered } =
-    useFilteredExpenses(expenses, filters);
+  const buildUrl = (p: number, pp: number) => `/expenses?page=${p}&per_page=${pp}`;
+  const toFirstPage = () => { if (page !== 1) router.push(buildUrl(1, perPage)); };
 
-  // Client-side pagination over the filtered (overall) result set.
-  const lastPage = Math.max(1, Math.ceil(filtered.length / perPage));
-  const currentPage = Math.min(page, lastPage);
-  const pageItems = useMemo(
-    () => filtered.slice((currentPage - 1) * perPage, currentPage * perPage),
-    [filtered, currentPage, perPage]
-  );
-  const meta: PaginationMeta = {
-    current_page: currentPage,
-    last_page: lastPage,
-    per_page: perPage,
-    total: filtered.length,
+  // Deleting the last row on the last page would otherwise strand the user on
+  // an empty page past the end.
+  useEffect(() => {
+    if (meta && meta.last_page >= 1 && page > meta.last_page) router.replace(buildUrl(meta.last_page, perPage));
+  }, [meta, page, perPage]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handlePageChange    = (newPage: number) => router.push(buildUrl(newPage, perPage));
+  const handlePerPageChange = (newPerPage: number) => router.push(buildUrl(1, newPerPage));
+
+  const handleApplyFilters = (next: FilterState) => {
+    setFilters(next);
+    toFirstPage();
   };
 
-  const buildUrl = (p: number, pp: number) =>
-    `/expenses?page=${p}&per_page=${pp}`;
-
-  const handlePageChange = (newPage: number) => {
-    router.push(buildUrl(newPage, perPage));
+  /** Re-click the active column to flip it; a new column starts at its natural direction. */
+  const handleSort = (key: SortKey) => {
+    setSort((s) => ({
+      sortKey: key,
+      sortDir: s.sortKey === key ? (s.sortDir === "asc" ? "desc" : "asc") : DEFAULT_SORT_DIR[key],
+    }));
+    toFirstPage();
   };
 
-  const handlePerPageChange = (newPerPage: number) => {
-    router.push(buildUrl(1, newPerPage));
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      exportToCSV(await fetchAllMatching(filters, sort));
+    } catch {
+      showToast("Export failed. Please try again.", "error");
+    } finally {
+      setExporting(false);
+    }
   };
 
-  const handleFiltersChange = (newFilters: FilterState) => {
-    setFilters(newFilters);
-    if (page !== 1) router.push(buildUrl(1, perPage));
-  };
-
-  const totalCount  = expenses.length;
-  const showingFrom = filteredCount === 0 ? 0 : (meta.current_page - 1) * meta.per_page + 1;
-  const showingTo   = Math.min(meta.current_page * meta.per_page, filteredCount);
+  const isFiltered  = hasFilters(filters);
+  const matching    = meta?.total ?? 0;
+  const userTotal   = meta?.user_total ?? 0;
+  const showingFrom = matching === 0 ? 0 : (page - 1) * perPage + 1;
+  const showingTo   = Math.min(page * perPage, matching);
 
   if (!user) return null;
 
   return (
     <>
-      {/* Add Expense Modal */}
-      <Modal open={addExpenseOpen} onClose={() => setAddExpenseOpen(false)} title="New Expense">
-        <ExpenseForm
-          onSubmit={async (data) => { await addExpense(data); await fetchSummary(); setAddExpenseOpen(false); showToast("Expense added!"); }}
+      <ExpensePanel
+        open={addExpenseOpen}
+        onClose={() => setAddExpenseOpen(false)}
+        onSubmit={async (data) => { await addExpense(data); await refetch(); setAddExpenseOpen(false); showToast("Expense added!"); }}
+        categories={categories}
+        catLoading={catLoading}
+        paymentMethods={paymentMethods}
+      />
+
+      {editingExpense && (
+        <ExpensePanel
+          open
+          onClose={() => setEditingExpense(null)}
+          expense={editingExpense}
+          onSubmit={async (data) => {
+            await updateExpense(editingExpense.id, data);
+            await refetch();
+            setEditingExpense(null);
+            showToast("Expense updated!");
+          }}
           categories={categories}
           catLoading={catLoading}
           paymentMethods={paymentMethods}
         />
-      </Modal>
-
-      {/* Edit Expense Modal */}
-      {editingExpense && (
-        <Modal open onClose={() => setEditingExpense(null)} title="Edit Expense">
-          <ExpenseForm
-            expense={editingExpense}
-            onSubmit={async (data) => {
-              await updateExpense(editingExpense.id, data);
-              await fetchSummary();
-              setEditingExpense(null);
-              showToast("Expense updated!");
-            }}
-            onCancel={() => setEditingExpense(null)}
-            categories={categories}
-            catLoading={catLoading}
-            paymentMethods={paymentMethods}
-          />
-        </Modal>
       )}
 
-      <div className="p-4 md:p-8 max-w-5xl mx-auto">
+      <Page>
+        <PageHeader
+          title="Expenses"
+          description={
+            !meta ? "Loading…"
+              : isFiltered ? `${matching} of ${userTotal} expense${userTotal !== 1 ? "s" : ""} match`
+              : `${userTotal} expense${userTotal !== 1 ? "s" : ""} total`
+          }
+          actions={
+            <>
+              {matching > 0 && (
+                <Button icon="download" collapseLabel loading={exporting} onClick={handleExport} aria-label="Export CSV">
+                  Export CSV
+                </Button>
+              )}
+              <Button variant="primary" icon="add" collapseLabel onClick={() => setAddExpenseOpen(true)} aria-label="New expense">
+                New expense
+              </Button>
+            </>
+          }
+        />
 
-        {/* ── Page header ── */}
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
-              Expenses
-            </h1>
-            <p className="text-white/40 text-sm mt-1">
-              {expensesLoading ? "Loading…" : `${totalCount} expense${totalCount !== 1 ? "s" : ""} total`}
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            {!expensesLoading && filtered.length > 0 && (
-              <button
-                onClick={() => exportToCSV(filtered)}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-medium text-white/60 hover:text-white/80 transition-all"
-              >
-                <span className="material-symbols-rounded" style={{ fontSize: 16 }}>download</span>
-                <span className="hidden sm:inline">Export CSV</span>
-              </button>
-            )}
-            <button
-              onClick={() => setAddExpenseOpen(true)}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/30 text-indigo-300 text-sm font-semibold transition-all"
-            >
-              <span className="material-symbols-rounded" style={{ fontSize: 18 }}>add</span>
-              <span className="hidden sm:inline">New Expense</span>
-            </button>
-          </div>
-        </div>
-
-        {/* ── Summary cards ── */}
-        <div className={`grid gap-4 mb-6 ${isFiltered ? "grid-cols-2 sm:grid-cols-3" : "grid-cols-2"}`}>
-          <SummaryCard
-            label="This Month"
-            value={thisMonth}
-            icon="calendar_month"
-            accent="indigo"
-            loading={summaryLoading}
+        <div className="mb-6 grid grid-cols-2 gap-3 sm:gap-4">
+          <StatCard
+            label="Total spent"
+            value={formatCurrency(meta?.total_amount ?? 0)}
+            icon="payments"
+            hint={isFiltered ? rangeLabel(filters) : "All time"}
+            loading={!meta}
           />
-          <SummaryCard
+          <StatCard
             label="Transactions"
-            value={totalCount}
+            value={matching}
             icon="receipt_long"
-            accent="purple"
-            isCurrency={false}
-            loading={expensesLoading}
+            hint={isFiltered && meta ? `of ${userTotal} overall` : undefined}
+            loading={!meta}
           />
-          {isFiltered && (
-            <div className="rounded-2xl bg-indigo-500/10 border border-indigo-500/25 backdrop-blur-sm p-3 sm:p-5 flex items-center gap-2.5 sm:gap-4 ring-1 ring-indigo-500/20 min-w-0">
-              <div className="h-9 w-9 sm:h-12 sm:w-12 rounded-xl bg-indigo-500/25 flex items-center justify-center shrink-0">
-                <span className="material-symbols-rounded text-xl sm:text-2xl text-indigo-300">filter_alt</span>
-              </div>
-              <div className="min-w-0">
-                <p className="text-[10px] sm:text-xs text-indigo-300/70 font-semibold uppercase tracking-widest truncate">Filtered</p>
-                <p className="text-base sm:text-2xl font-extrabold text-indigo-300 truncate">
-                  ₹{filteredTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                </p>
-                <p className="text-[10px] sm:text-xs text-indigo-300/50 mt-0.5 truncate">
-                  {filteredCount} of {totalCount} overall
-                </p>
-              </div>
-            </div>
-          )}
         </div>
 
-        {/* ── Filters ── */}
-        {!expensesLoading && (
-          <div className="mb-6">
-            <ExpenseFilters
-              categories={categories}
-              paymentMethods={paymentMethods}
-              filters={filters}
-              onChange={handleFiltersChange}
-              filteredCount={filteredCount}
-              totalCount={totalCount}
-              filteredTotal={filteredTotal}
-              isFiltered={isFiltered}
-            />
-          </div>
-        )}
+        <div className="mb-4">
+          <ExpenseFilters
+            categories={categories}
+            paymentMethods={paymentMethods}
+            filters={filters}
+            onApply={handleApplyFilters}
+          />
+        </div>
 
-        {/* ── Expense list ── */}
-        <div className="rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm p-6">
-          <div className="flex items-center justify-between mb-5">
-            <div className="flex items-center gap-3">
-              <span className="h-9 w-9 rounded-xl bg-purple-500/20 flex items-center justify-center">
-                <span className="material-symbols-rounded text-purple-400 text-xl">receipt_long</span>
-              </span>
-              <div>
-                <h2 className="text-base font-bold text-white">All Expenses</h2>
-                {!expensesLoading && (
-                  <p className="text-xs text-white/35">
-                    {isFiltered
-                      ? `${filteredCount} of ${totalCount} match — showing ${showingFrom}–${showingTo}`
-                      : `Showing ${showingFrom}–${showingTo} of ${totalCount}`}
-                  </p>
-                )}
-              </div>
-            </div>
+        <Card>
+          <CardHeader
+            title="All expenses"
+            description={loading && !meta ? undefined : matching === 0 ? "No matching expenses" : `Showing ${showingFrom}–${showingTo} of ${matching}`}
+            className="border-b border-border"
+          />
 
-            <Link
-              href="/categories"
-              className="flex items-center gap-1.5 text-xs text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 px-3 py-1.5 rounded-lg transition-all"
-            >
-              <span className="material-symbols-rounded" style={{ fontSize: 15 }}>label</span>
-              <span className="hidden sm:inline">Manage Categories</span>
-            </Link>
-          </div>
-
-          {error && error !== "unauthenticated" && (
-            <div className="mb-4 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-sm text-red-400 flex items-center gap-2">
-              <span className="material-symbols-rounded text-base">error</span>
-              {error}
-            </div>
-          )}
+          {error && error !== "unauthenticated" && <Alert className="m-4">{error}</Alert>}
 
           <ExpenseList
-            expenses={pageItems}
-            totalCount={totalCount}
-            loading={expensesLoading}
+            expenses={expenses}
+            totalCount={userTotal}
+            loading={loading}
             onEdit={setEditingExpense}
-            onDelete={async (id) => { await removeExpense(id); await fetchSummary(); showToast("Expense deleted."); }}
-            onClearFilters={() => handleFiltersChange(DEFAULT_FILTERS)}
+            onDelete={async (id) => { await removeExpense(id); await refetch(); showToast("Expense deleted."); }}
+            onClearFilters={() => handleApplyFilters(EMPTY_FILTERS)}
+            sortKey={sort.sortKey}
+            sortDir={sort.sortDir}
+            onSort={handleSort}
           />
 
-          {/* ── Pagination bar + per-page selector ── */}
-          {!expensesLoading && filtered.length > 0 && (
-            <div className="mt-4 border-t border-white/10 pt-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-              <Pagination meta={meta} onPageChange={handlePageChange} />
-              <div className="flex items-center gap-2 text-xs text-white/40 shrink-0">
+          {meta && matching > 0 && (
+            <div className="flex flex-col-reverse items-center justify-between gap-3 border-t border-border px-4 py-3 sm:flex-row">
+              <div className="flex items-center gap-2 text-xs text-muted">
                 <span>Rows per page</span>
-                <div className="relative">
-                  <select
-                    value={perPage}
-                    onChange={(e) => handlePerPageChange(Number(e.target.value))}
-                    className="appearance-none bg-white/8 border border-white/15 text-white/80 rounded-lg pl-3 pr-7 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
-                    style={{ backgroundColor: "rgba(255,255,255,0.06)" }}
-                  >
-                    {PER_PAGE_OPTIONS.map((n) => (
-                      <option key={n} value={n} style={{ background: "#1e1e2e", color: "#e5e7eb" }}>
-                        {n}
-                      </option>
-                    ))}
-                  </select>
-                  <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-white/50 text-[10px]">▾</span>
+                <div className="w-20">
+                  <Select
+                    size="sm"
+                    aria-label="Rows per page"
+                    value={String(perPage)}
+                    onChange={(v) => handlePerPageChange(Number(v))}
+                    options={PER_PAGE_SELECT}
+                    searchable={false}
+                  />
                 </div>
               </div>
+              <Pagination meta={meta} onPageChange={handlePageChange} />
             </div>
           )}
-        </div>
-
-      </div>
+        </Card>
+      </Page>
     </>
   );
 }

@@ -2,18 +2,24 @@
 
 import { useMemo, useEffect, useState } from "react";
 import Link from "next/link";
-import { useAllExpenses } from "@/hooks/useAllExpenses";
+import { useExpenses, useExpenseMutations } from "@/hooks/useExpenses";
+import { useExpenseStats } from "@/hooks/useExpenseStats";
 import { useExpenseSummary } from "@/hooks/useExpenseSummary";
 import { useAuth } from "@/hooks/useAuth";
 import { useCategories } from "@/hooks/useCategories";
 import { usePaymentMethods } from "@/hooks/usePaymentMethods";
-import { useFilteredExpenses, DEFAULT_FILTERS } from "@/hooks/useFilteredExpenses";
 import { useToast } from "@/hooks/useToast";
-import Modal from "@/components/ui/Modal";
-import SummaryCard from "@/components/ui/SummaryCard";
+import Page from "@/components/layout/Page";
+import PageHeader from "@/components/ui/PageHeader";
+import StatCard from "@/components/ui/StatCard";
+import Button, { buttonClasses } from "@/components/ui/Button";
+import Alert from "@/components/ui/Alert";
+import { Card, CardHeader } from "@/components/ui/Card";
+import { formatCurrency } from "@/lib/format";
 import ExpenseList from "@/components/ExpenseList";
-import ExpenseForm from "@/components/ExpenseForm";
-import CategoryBreakdown from "@/components/CategoryBreakdown";
+import ExpensePanel from "@/components/ExpensePanel";
+import CategoryBreakdown, { toBreakdown } from "@/components/CategoryBreakdown";
+import { EMPTY_FILTERS } from "@/lib/expenseQuery";
 import AppShell from "@/components/layout/AppShell";
 import RequireAuth from "@/components/layout/RequireAuth";
 import type { Expense } from "@/lib/types";
@@ -33,18 +39,12 @@ export default function DashboardPage() {
 
 function DashboardContent() {
   const { user } = useAuth();
-  // One expense fetch, not two: this page previously ran useExpenses(1, 10)
-  // alongside useAllExpenses(), so the ten most recent rows were fetched twice
-  // over. The "Recent Expenses" list is just the head of the full list, which
-  // the API already returns newest-first.
-  const {
-    expenses: allExpenses,
-    loading: allExpensesLoading,
-    error,
-    addExpense,
-    updateExpense,
-    removeExpense,
-  } = useAllExpenses();
+  // Just the newest page for the list; totals and the category breakdown span
+  // every expense, so they come from the stats endpoint rather than this page.
+  const { expenses: recentExpenses, loading: recentLoading, error, refetch: refetchRecent } =
+    useExpenses({ filters: EMPTY_FILTERS, perPage: RECENT_LIMIT });
+  const { stats, loading: statsLoading, error: statsError, refetch: refetchStats } = useExpenseStats();
+  const { addExpense, updateExpense, removeExpense } = useExpenseMutations();
   const { thisMonth, loading: summaryLoading, fetchSummary } = useExpenseSummary();
   const { categories, loading: catLoading, fetchCategories } = useCategories();
   const { paymentMethods, fetchPaymentMethods } = usePaymentMethods();
@@ -60,141 +60,112 @@ function DashboardContent() {
     }
   }, [user, fetchCategories, fetchPaymentMethods]);
 
-  const recentExpenses = useMemo(() => allExpenses.slice(0, RECENT_LIMIT), [allExpenses]);
+  const totalSpent = stats?.total ?? 0;
+  const totalCount = stats?.count ?? 0;
+  const categoryBreakdown = useMemo(() => toBreakdown(stats?.by_category ?? [], totalSpent), [stats, totalSpent]);
 
-  // Category breakdown and total reflect ALL of the user's expenses, not just the
-  // 10 most recent ones shown in the "Recent Expenses" list below.
-  const { categoryBreakdown } = useFilteredExpenses(allExpenses, DEFAULT_FILTERS);
-
-  const totalSpent = useMemo(
-    () => allExpenses.reduce((sum, e) => sum + Number(e.amount), 0),
-    [allExpenses]
-  );
+  /** After any write: the list, the all-time figures and this month's total. */
+  const refreshAll = () => Promise.all([refetchRecent(), refetchStats(), fetchSummary()]);
 
   if (!user) return null;
 
   return (
     <>
-      {/* Add Expense Modal */}
-      <Modal open={addExpenseOpen} onClose={() => setAddExpenseOpen(false)} title="New Expense">
-        <ExpenseForm
-          onSubmit={async (data) => { await addExpense(data); await fetchSummary(); setAddExpenseOpen(false); showToast("Expense added!"); }}
+      <ExpensePanel
+        open={addExpenseOpen}
+        onClose={() => setAddExpenseOpen(false)}
+        onSubmit={async (data) => { await addExpense(data); await refreshAll(); setAddExpenseOpen(false); showToast("Expense added!"); }}
+        categories={categories}
+        catLoading={catLoading}
+        paymentMethods={paymentMethods}
+      />
+
+      {editingExpense && (
+        <ExpensePanel
+          open
+          onClose={() => setEditingExpense(null)}
+          expense={editingExpense}
+          onSubmit={async (data) => {
+            await updateExpense(editingExpense.id, data);
+            await refreshAll();
+            setEditingExpense(null);
+            showToast("Expense updated!");
+          }}
           categories={categories}
           catLoading={catLoading}
           paymentMethods={paymentMethods}
         />
-      </Modal>
-
-      {/* Edit Expense Modal */}
-      {editingExpense && (
-        <Modal open onClose={() => setEditingExpense(null)} title="Edit Expense">
-          <ExpenseForm
-            expense={editingExpense}
-            onSubmit={async (data) => {
-              await updateExpense(editingExpense.id, data);
-              await fetchSummary();
-              setEditingExpense(null);
-              showToast("Expense updated!");
-            }}
-            onCancel={() => setEditingExpense(null)}
-            categories={categories}
-            catLoading={catLoading}
-            paymentMethods={paymentMethods}
-          />
-        </Modal>
       )}
 
-      <div className="p-4 md:p-8 max-w-5xl mx-auto">
+      <Page>
+        <PageHeader
+          title="Dashboard"
+          description={`Welcome back, ${user.name.split(" ")[0]}`}
+          actions={
+            <Button variant="primary" icon="add" collapseLabel onClick={() => setAddExpenseOpen(true)} aria-label="New expense">
+              New expense
+            </Button>
+          }
+        />
 
-        {/* ── Page header ── */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
-              Dashboard
-            </h1>
-            <p className="text-white/40 text-sm mt-1">
-              Welcome back, {user.name.split(" ")[0]}
-            </p>
-          </div>
-          <button
-            onClick={() => setAddExpenseOpen(true)}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/30 text-indigo-300 text-sm font-semibold transition-all"
-          >
-            <span className="material-symbols-rounded" style={{ fontSize: 18 }}>add</span>
-            <span className="hidden sm:inline">New Expense</span>
-          </button>
-        </div>
+        {/* Without this the tiles and the breakdown would report a confident
+            zero for figures the API never returned. */}
+        {statsError && statsError !== "unauthenticated" && (
+          <Alert className="mb-6">{statsError}</Alert>
+        )}
 
-        {/* ── Summary cards ── */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-          <SummaryCard
-            label="This Month"
-            value={thisMonth}
+        <div className="mb-6 grid grid-cols-2 gap-3 sm:gap-4">
+          <StatCard
+            label="This month"
+            value={formatCurrency(thisMonth)}
             icon="calendar_month"
-            accent="purple"
             loading={summaryLoading}
           />
-          <SummaryCard
+          <StatCard
             label="Transactions"
-            value={allExpenses.length}
+            value={totalCount}
             icon="receipt_long"
-            accent="pink"
-            isCurrency={false}
-            loading={allExpensesLoading}
+            hint={statsLoading ? undefined : `${formatCurrency(totalSpent, { decimals: false })} all time`}
+            loading={statsLoading}
           />
         </div>
 
-        {/* ── Category breakdown ── */}
-        {!allExpensesLoading && (
-          <div className="mb-6">
+        <div className="grid gap-6 lg:grid-cols-5">
+          <Card className="overflow-hidden lg:col-span-3">
+            <CardHeader
+              title="Recent expenses"
+              description={recentLoading || statsLoading ? "Loading…" : `Latest ${recentExpenses.length} of ${totalCount}`}
+              action={
+                <Link href="/expenses" className={buttonClasses({ variant: "ghost", size: "sm" })}>
+                  View all
+                </Link>
+              }
+              className="border-b border-border"
+            />
+
+            {error && error !== "unauthenticated" && (
+              <Alert className="m-4">{error}</Alert>
+            )}
+
+            <ExpenseList
+              compact
+              expenses={recentExpenses}
+              totalCount={totalCount}
+              loading={recentLoading}
+              onEdit={setEditingExpense}
+              onDelete={async (id) => { await removeExpense(id); await refreshAll(); showToast("Expense deleted."); }}
+            />
+          </Card>
+
+          <div className="lg:col-span-2">
             <CategoryBreakdown
               breakdown={categoryBreakdown}
               filteredTotal={totalSpent}
-              loading={allExpensesLoading}
+              loading={statsLoading}
             />
           </div>
-        )}
-
-        {/* ── Recent expenses ── */}
-        <div className="rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm p-6">
-          <div className="flex items-center justify-between mb-5">
-            <div className="flex items-center gap-3">
-              <span className="h-9 w-9 rounded-xl bg-purple-500/20 flex items-center justify-center">
-                <span className="material-symbols-rounded text-purple-400 text-xl">list_alt</span>
-              </span>
-              <div>
-                <h2 className="text-base font-bold text-white">Recent Expenses</h2>
-                <p className="text-xs text-white/35">
-                  {allExpensesLoading ? "Loading…" : `Last ${recentExpenses.length} of ${allExpenses.length}`}
-                </p>
-              </div>
-            </div>
-            <Link
-              href="/expenses"
-              className="text-xs text-indigo-300 hover:text-indigo-200 font-medium flex items-center gap-1 transition-colors"
-            >
-              View all
-              <span className="material-symbols-rounded" style={{ fontSize: 15 }}>arrow_forward</span>
-            </Link>
-          </div>
-
-          {error && error !== "unauthenticated" && (
-            <div className="mb-4 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-sm text-red-400 flex items-center gap-2">
-              <span className="material-symbols-rounded text-base">error</span>
-              {error}
-            </div>
-          )}
-
-          <ExpenseList
-            expenses={recentExpenses}
-            totalCount={allExpenses.length}
-            loading={allExpensesLoading}
-            onEdit={setEditingExpense}
-            onDelete={async (id) => { await removeExpense(id); await fetchSummary(); showToast("Expense deleted."); }}
-          />
         </div>
-
-      </div>
+      </Page>
     </>
   );
 }

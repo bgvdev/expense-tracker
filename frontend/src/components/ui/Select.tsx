@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { cn } from "@/lib/cn";
+import Icon from "./Icon";
+import { controlClasses, controlSizes } from "./Input";
 
 export interface SelectOption {
   value: string;
@@ -22,6 +25,24 @@ interface Props {
   searchable?: boolean;
   searchPlaceholder?: string;
   className?: string;
+  size?: "sm" | "md";
+  /** Accessible name when there is no visible <label>. */
+  "aria-label"?: string;
+}
+
+/**
+ * Whether a dropdown anchored to `el` should open upwards. Measures against
+ * the nearest `[data-scroll-boundary]` (e.g. the side panel body, whose
+ * footer would otherwise cover the list), falling back to the viewport.
+ */
+export function shouldDropUp(el: HTMLElement, needed = 300): boolean {
+  const rect = el.getBoundingClientRect();
+  const boundary = el.closest("[data-scroll-boundary]")?.getBoundingClientRect();
+  const top = boundary?.top ?? 0;
+  const bottom = boundary?.bottom ?? window.innerHeight;
+  const below = bottom - rect.bottom;
+  const above = rect.top - top;
+  return below < needed && above > below;
 }
 
 /** Lists longer than this get a filter box unless `searchable` says otherwise. */
@@ -46,6 +67,8 @@ export default function Select({
   searchable,
   searchPlaceholder = "Search…",
   className = "",
+  size = "md",
+  "aria-label": ariaLabel,
 }: Props) {
   const [open, setOpen]     = useState(false);
   const [active, setActive] = useState(0);
@@ -77,11 +100,7 @@ export default function Select({
   // Flip upwards when there is not enough room below, and focus the filter box.
   useLayoutEffect(() => {
     if (!open) return;
-    const rect = rootRef.current?.getBoundingClientRect();
-    if (rect) {
-      const below = window.innerHeight - rect.bottom;
-      setDropUp(below < 300 && rect.top > below);
-    }
+    if (rootRef.current) setDropUp(shouldDropUp(rootRef.current));
     searchRef.current?.focus();
   }, [open]);
 
@@ -125,7 +144,7 @@ export default function Select({
     switch (e.key) {
       case "Escape":
         e.preventDefault();
-        e.stopPropagation(); // don't let an enclosing modal close too
+        e.stopPropagation(); // don't let an enclosing panel close too
         close();
         break;
       case "ArrowDown":
@@ -168,47 +187,51 @@ export default function Select({
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={listboxId}
+        aria-label={ariaLabel}
         disabled={disabled}
         onClick={() => (open ? close() : openList())}
         onKeyDown={onKeyDown}
-        className="w-full flex items-center gap-3 pl-4 pr-10 py-3 rounded-xl text-left
-                   bg-white/5 border border-white/10 text-white
-                   focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30
-                   transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+        className={cn(
+          controlClasses,
+          controlSizes[size],
+          "flex items-center gap-2 pr-9 text-left",
+        )}
       >
         {(selected?.icon || fallbackIcon) && (
-          <span
-            className="material-symbols-rounded shrink-0"
-            style={{ fontSize: 18, color: selected?.color ?? "rgba(255,255,255,0.3)" }}
-          >
-            {selected?.icon || fallbackIcon}
-          </span>
+          <Icon
+            name={(selected?.icon || fallbackIcon)!}
+            size={size === "sm" ? 15 : 18}
+            className={selected?.color ? undefined : "text-faint"}
+            style={selected?.color ? { color: selected.color } : undefined}
+          />
         )}
-        <span className={`truncate ${selected ? "" : "text-white/40"}`}>
+        <span className={cn("truncate", !selected && "text-faint")}>
           {selected?.label ?? placeholder}
         </span>
-        <span
-          className="material-symbols-rounded absolute right-3 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none"
-          style={{ fontSize: 20 }}
-        >
-          {open ? "expand_less" : "expand_more"}
-        </span>
+        <Icon
+          name="expand_more"
+          size={18}
+          className={cn(
+            "pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-faint transition-transform",
+            open && "rotate-180",
+          )}
+        />
       </button>
 
       {open && (
         <div
-          className={`absolute z-50 w-full rounded-xl border border-white/10 bg-[#141435]
-                      shadow-2xl shadow-black/50 overflow-hidden
-                      ${dropUp ? "bottom-full mb-2" : "top-full mt-2"}`}
+          className={cn(
+            "absolute z-50 min-w-full overflow-hidden rounded-lg border border-border bg-surface shadow-lg animate-fade-in",
+            dropUp ? "bottom-full mb-1.5" : "top-full mt-1.5",
+          )}
         >
           {showSearch && (
-            <div className="relative border-b border-white/10">
-              <span
-                className="material-symbols-rounded absolute left-3 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none"
-                style={{ fontSize: 18 }}
-              >
-                search
-              </span>
+            <div className="relative border-b border-border">
+              <Icon
+                name="search"
+                size={16}
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-faint"
+              />
               <input
                 ref={searchRef}
                 type="text"
@@ -218,8 +241,7 @@ export default function Select({
                 placeholder={searchPlaceholder}
                 aria-controls={listboxId}
                 aria-activedescendant={id && filtered.length ? `${id}-opt-${active}` : undefined}
-                className="w-full pl-10 pr-3 py-2.5 bg-transparent text-sm text-white
-                           placeholder-white/30 focus:outline-none"
+                className="w-full bg-transparent py-2.5 pl-9 pr-3 text-sm text-foreground placeholder:text-faint focus:outline-none"
               />
             </div>
           )}
@@ -229,10 +251,10 @@ export default function Select({
             id={listboxId}
             role="listbox"
             tabIndex={-1}
-            className="max-h-60 overflow-y-auto overscroll-contain py-1"
+            className="max-h-60 overflow-y-auto overscroll-contain p-1"
           >
             {filtered.length === 0 && (
-              <li className="px-4 py-3 text-sm text-white/40">
+              <li className="px-3 py-2.5 text-sm text-muted">
                 {options.length === 0 ? "No options" : "No matches"}
               </li>
             )}
@@ -247,23 +269,19 @@ export default function Select({
                   data-active={i === active}
                   onMouseEnter={() => setActive(i)}
                   onClick={() => commit(i)}
-                  className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer text-sm
-                              ${i === active ? "bg-indigo-500/20" : ""}
-                              ${isSelected ? "text-white font-semibold" : "text-white/80"}`}
+                  className={cn(
+                    "flex cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-2 text-sm",
+                    i === active && "bg-subtle",
+                    isSelected ? "font-medium text-foreground" : "text-foreground/80",
+                    size === "sm" && "py-1.5 text-xs",
+                  )}
                 >
                   {opt.icon && (
-                    <span
-                      className="material-symbols-rounded shrink-0"
-                      style={{ fontSize: 18, color: opt.color ?? undefined }}
-                    >
-                      {opt.icon}
-                    </span>
+                    <Icon name={opt.icon} size={18} style={{ color: opt.color ?? undefined }} />
                   )}
                   <span className="truncate">{opt.label}</span>
                   {isSelected && (
-                    <span className="material-symbols-rounded ml-auto text-indigo-400 shrink-0" style={{ fontSize: 18 }}>
-                      check
-                    </span>
+                    <Icon name="check" size={16} className="ml-auto text-foreground" />
                   )}
                 </li>
               );

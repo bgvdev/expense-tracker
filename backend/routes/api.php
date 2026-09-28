@@ -60,6 +60,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Expenses
     Route::get('expenses/summary', [ExpenseController::class, 'summary']);
+    Route::get('expenses/stats', [ExpenseController::class, 'stats']);
     Route::apiResource('expenses', ExpenseController::class)
         ->only(['index', 'store', 'update', 'destroy']);
 

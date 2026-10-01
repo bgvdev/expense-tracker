@@ -17,6 +17,11 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Trust reverse proxies (Vercel edge and Render load balancer) so that
+        // $request->ip() extracts the real user IP from X-Forwarded-For rather
+        // than sharing Vercel's proxy IP across all visitors.
+        $middleware->trustProxies(at: '*');
+
         $middleware->alias([
             'admin' => AdminMiddleware::class,
         ]);

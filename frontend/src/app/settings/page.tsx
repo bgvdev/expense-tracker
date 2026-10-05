@@ -14,7 +14,7 @@ import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 import Alert from "@/components/ui/Alert";
 import Avatar from "@/components/ui/Avatar";
-import { ThemeSwitcher } from "@/components/ui/ThemeToggle";
+import { PaletteSwitcher, ThemeSwitcher } from "@/components/ui/ThemeToggle";
 
 export default function SettingsPage() {
   return (
@@ -138,7 +138,7 @@ function Settings() {
           </Card>
         </Section>
 
-        <Section title="Appearance" description="Choose a theme, or follow your system setting.">
+        <Section title="Appearance" description="Choose a theme and color palette, or follow your system setting.">
           <Card>
             <CardBody className="flex flex-col gap-3 pt-5 sm:flex-row sm:items-center sm:justify-between">
               <div>
@@ -146,6 +146,13 @@ function Settings() {
                 <p className="mt-0.5 text-xs text-muted">Applies on this device.</p>
               </div>
               <ThemeSwitcher />
+            </CardBody>
+            <CardBody className="flex flex-col gap-3 border-t border-border pt-5">
+              <div>
+                <p className="text-sm font-medium text-foreground">Color palette</p>
+                <p className="mt-0.5 text-xs text-muted">Works in both light and dark mode.</p>
+              </div>
+              <PaletteSwitcher />
             </CardBody>
           </Card>
         </Section>

@@ -49,7 +49,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen">
       {/* ── Desktop sidebar ── */}
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-60 flex-col border-r border-border bg-surface md:flex">
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-60 flex-col border-r border-border bg-surface/80 backdrop-blur md:flex">
         <div className="flex h-14 items-center px-5">
           <Logo />
         </div>
@@ -65,11 +65,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 className={cn(
                   "flex h-9 items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors",
                   active
-                    ? "bg-subtle text-foreground"
+                    ? "bg-primary/10 text-primary"
                     : "text-muted hover:bg-subtle/60 hover:text-foreground",
                 )}
               >
-                <Icon name={icon} size={19} className={active ? "text-foreground" : "text-faint"} />
+                <Icon name={icon} size={19} className={active ? "text-primary" : "text-faint"} />
                 {label}
               </Link>
             );
@@ -114,13 +114,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 aria-current={active ? "page" : undefined}
                 className={cn(
                   "flex flex-1 flex-col items-center justify-center gap-0.5 text-[10px] font-medium transition-colors",
-                  active ? "text-foreground" : "text-faint hover:text-muted",
+                  active ? "text-primary" : "text-faint hover:text-muted",
                 )}
               >
                 <span
                   className={cn(
                     "flex h-7 w-12 items-center justify-center rounded-full transition-colors",
-                    active && "bg-subtle",
+                    active && "bg-primary/10",
                   )}
                 >
                   <Icon name={icon} size={20} />

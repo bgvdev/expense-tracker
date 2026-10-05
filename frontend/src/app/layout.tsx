@@ -4,6 +4,7 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { ToastProvider } from "@/hooks/useToast";
 import { ThemeProvider, themeInitScript } from "@/hooks/useTheme";
 import { ToastContainer } from "@/components/Toast";
+import BackgroundShapes from "@/components/layout/BackgroundShapes";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
@@ -34,6 +35,7 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
       <body className="font-sans">
+        <BackgroundShapes />
         <ThemeProvider>
           <AuthProvider>
             <ToastProvider>

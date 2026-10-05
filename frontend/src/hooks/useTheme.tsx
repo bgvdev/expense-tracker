@@ -4,19 +4,26 @@ import { createContext, useCallback, useContext, useEffect, useState, type React
 
 export type ThemePreference = "light" | "dark" | "system";
 export type ResolvedTheme = "light" | "dark";
+/** Color palette, independent of light/dark. Classic is the base tokens in globals.css. */
+export type Palette = "classic" | "ocean" | "forest" | "sunset";
+
+export const PALETTES: Palette[] = ["classic", "ocean", "forest", "sunset"];
 
 export const THEME_STORAGE_KEY = "theme";
+export const PALETTE_STORAGE_KEY = "palette";
 
 /**
  * Runs inline in <head> before first paint, so the page never flashes the
- * wrong theme. Must stay in sync with applyTheme() below.
+ * wrong theme or palette. Must stay in sync with applyTheme()/applyPalette() below.
  */
-export const themeInitScript = `(function(){try{var p=localStorage.getItem("${THEME_STORAGE_KEY}");var d=p==="dark"||((p!=="light")&&window.matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.classList.toggle("dark",d);}catch(e){}})();`;
+export const themeInitScript = `(function(){try{var p=localStorage.getItem("${THEME_STORAGE_KEY}");var d=p==="dark"||((p!=="light")&&window.matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.classList.toggle("dark",d);var c=localStorage.getItem("${PALETTE_STORAGE_KEY}");if(${JSON.stringify(PALETTES.filter((p) => p !== "classic"))}.indexOf(c)>-1)document.documentElement.setAttribute("data-palette",c);}catch(e){}})();`;
 
 interface ThemeContextType {
   preference: ThemePreference;
   resolved: ResolvedTheme;
   setPreference: (p: ThemePreference) => void;
+  palette: Palette;
+  setPalette: (p: Palette) => void;
 }
 
 const ThemeContext = createContext<ThemeContextType | null>(null);
@@ -29,6 +36,11 @@ function applyTheme(theme: ResolvedTheme) {
   document.documentElement.classList.toggle("dark", theme === "dark");
 }
 
+function applyPalette(palette: Palette) {
+  if (palette === "classic") document.documentElement.removeAttribute("data-palette");
+  else document.documentElement.setAttribute("data-palette", palette);
+}
+
 function readPreference(): ThemePreference {
   try {
     const stored = localStorage.getItem(THEME_STORAGE_KEY);
@@ -39,15 +51,27 @@ function readPreference(): ThemePreference {
   return "system";
 }
 
+function readPalette(): Palette {
+  try {
+    const stored = localStorage.getItem(PALETTE_STORAGE_KEY);
+    if (PALETTES.includes(stored as Palette)) return stored as Palette;
+  } catch {
+    // Storage blocked — use the default palette.
+  }
+  return "classic";
+}
+
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [preference, setPreferenceState] = useState<ThemePreference>("system");
   const [resolved, setResolved] = useState<ResolvedTheme>("light");
+  const [palette, setPaletteState] = useState<Palette>("classic");
 
   // Sync with what the inline script already applied.
   useEffect(() => {
     const p = readPreference();
     setPreferenceState(p);
     setResolved(p === "system" ? systemTheme() : p);
+    setPaletteState(readPalette());
   }, []);
 
   // Follow OS changes while the preference is "system".
@@ -76,8 +100,19 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     applyTheme(t);
   }, []);
 
+  const setPalette = useCallback((p: Palette) => {
+    setPaletteState(p);
+    try {
+      if (p === "classic") localStorage.removeItem(PALETTE_STORAGE_KEY);
+      else localStorage.setItem(PALETTE_STORAGE_KEY, p);
+    } catch {
+      // Non-persistent is fine; the choice still applies for this visit.
+    }
+    applyPalette(p);
+  }, []);
+
   return (
-    <ThemeContext.Provider value={{ preference, resolved, setPreference }}>
+    <ThemeContext.Provider value={{ preference, resolved, setPreference, palette, setPalette }}>
       {children}
     </ThemeContext.Provider>
   );

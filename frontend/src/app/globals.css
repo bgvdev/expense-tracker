@@ -68,6 +68,94 @@
     color-scheme: dark;
   }
 
+  /*
+   * Color palettes, layered on top of light/dark via `data-palette` on <html>
+   * (set by ThemeProvider and the init script in layout.tsx). Classic is the
+   * :root / .dark block above; each palette only overrides the tinted tokens —
+   * danger/success/warning stay shared so status colors mean the same thing
+   * everywhere.
+   */
+  [data-palette="ocean"] {
+    --background: 243 247 252;
+    --surface: 255 255 255;
+    --subtle: 232 240 250;
+    --border: 214 226 240;
+    --foreground: 15 23 42;
+    --muted: 100 116 139;
+    --faint: 148 163 184;
+    --primary: 37 99 235;
+    --primary-foreground: 255 255 255;
+    --accent: 2 132 199;
+    --ring: 37 99 235;
+  }
+  .dark[data-palette="ocean"] {
+    --background: 8 15 30;
+    --surface: 13 23 42;
+    --subtle: 22 34 58;
+    --border: 32 47 74;
+    --foreground: 226 232 240;
+    --muted: 148 163 184;
+    --faint: 100 116 139;
+    --primary: 96 165 250;
+    --primary-foreground: 8 15 30;
+    --accent: 56 189 248;
+    --ring: 96 165 250;
+  }
+
+  [data-palette="forest"] {
+    --background: 244 250 246;
+    --surface: 255 255 255;
+    --subtle: 232 243 236;
+    --border: 212 229 219;
+    --foreground: 20 33 27;
+    --muted: 95 115 105;
+    --faint: 145 163 153;
+    --primary: 4 120 87;
+    --primary-foreground: 255 255 255;
+    --accent: 13 148 136;
+    --ring: 5 150 105;
+  }
+  .dark[data-palette="forest"] {
+    --background: 7 18 14;
+    --surface: 12 27 21;
+    --subtle: 20 39 31;
+    --border: 31 54 44;
+    --foreground: 228 240 233;
+    --muted: 148 170 158;
+    --faint: 100 122 110;
+    --primary: 52 211 153;
+    --primary-foreground: 6 30 22;
+    --accent: 45 212 191;
+    --ring: 52 211 153;
+  }
+
+  [data-palette="sunset"] {
+    --background: 255 248 243;
+    --surface: 255 255 255;
+    --subtle: 253 238 228;
+    --border: 243 221 207;
+    --foreground: 41 24 18;
+    --muted: 125 100 90;
+    --faint: 175 150 140;
+    --primary: 194 65 12;
+    --primary-foreground: 255 255 255;
+    --accent: 225 29 72;
+    --ring: 234 88 12;
+  }
+  .dark[data-palette="sunset"] {
+    --background: 20 12 10;
+    --surface: 31 20 17;
+    --subtle: 45 30 25;
+    --border: 62 42 35;
+    --foreground: 250 236 228;
+    --muted: 180 160 150;
+    --faint: 130 110 100;
+    --primary: 251 146 60;
+    --primary-foreground: 40 18 8;
+    --accent: 251 113 133;
+    --ring: 251 146 60;
+  }
+
   html {
     -webkit-tap-highlight-color: transparent;
   }

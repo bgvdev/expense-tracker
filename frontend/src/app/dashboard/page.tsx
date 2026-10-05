@@ -27,6 +27,9 @@ import type { Expense } from "@/lib/types";
 /** How many of the newest expenses the "Recent Expenses" card shows. */
 const RECENT_LIMIT = 10;
 
+/** How many categories the spending breakdown lists before folding the rest into one row. */
+const TOP_CATEGORIES = 5;
+
 export default function DashboardPage() {
   return (
     <RequireAuth>
@@ -130,7 +133,7 @@ function DashboardContent() {
           />
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-5">
+        <div className="grid items-start gap-6 lg:grid-cols-5">
           <Card className="overflow-hidden lg:col-span-3">
             <CardHeader
               title="Recent expenses"
@@ -162,6 +165,7 @@ function DashboardContent() {
               breakdown={categoryBreakdown}
               filteredTotal={totalSpent}
               loading={statsLoading}
+              limit={TOP_CATEGORIES}
             />
           </div>
         </div>
